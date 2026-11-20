@@ -708,9 +708,12 @@ class AtmosphereWeatherCard extends HTMLElement {
       host.innerHTML = `<p class="empty">${this.data && !this.data.radar ? 'Radar disabled in integration settings' : 'Recent radar unavailable'}</p>`;
       return;
     }
-    const signature = `${location.id}:${frame.time}:${this.frames.length}`;
-    if (host.firstElementChild?.dataset.signature === signature) return;
-    const zoom = 6;
+    const zoom = this.radarZoom ?? 6;
+    const signature = `${location.id}:${frame.time}:${this.frames.length}:${zoom}`;
+    if (host.firstElementChild?.dataset.signature === signature) {
+      this.drawWindRose();
+      return;
+    }
     const size = 2 ** zoom;
     const latitude = Math.max(-85,Math.min(85,location.latitude)) * Math.PI / 180;
     const x = (location.longitude + 180) / 360 * size;
@@ -727,7 +730,18 @@ class AtmosphereWeatherCard extends HTMLElement {
       }
     }
     host.innerHTML = `<div class="radar-content" data-signature="${signature}">
-      <div class="map" role="img" aria-label="Recent observed precipitation near ${escape(location.name)}">${tiles.join('')}<span class="pin"></span></div>
+      <div class="radar-map-area">
+        <div class="map" role="img" aria-label="Recent observed precipitation near ${escape(location.name)}">${tiles.join('')}<span class="pin"></span></div>
+        <aside class="wind-rose" hidden><strong>Wind · next 24 hours</strong>
+          <canvas width="176" height="176" role="img" aria-label="Forecast wind rose"></canvas>
+          <small class="wind-rose-key"></small>
+        </aside>
+        <div class="radar-tools" role="group" aria-label="Radar map controls">
+          <button type="button" id="wind-rose-toggle" aria-pressed="false">Wind rose</button>
+          <button type="button" id="radar-out" aria-label="Zoom out radar" ${zoom <= 3 ? 'disabled' : ''}>−</button>
+          <button type="button" id="radar-in" aria-label="Zoom in radar" ${zoom >= 7 ? 'disabled' : ''}>+</button>
+        </div>
+      </div>
       <div class="radar-controls"><input type="range" id="radar-time" min="0" max="${this.frames.length - 1}" value="${this.frameIndex}" aria-label="Observed radar time">
       <span>${this.time(frame.time * 1000)}</span></div>
       <small><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ·
@@ -745,11 +759,97 @@ class AtmosphereWeatherCard extends HTMLElement {
       tile.onerror = handleFailure;
       if (tile.complete && !tile.naturalWidth) handleFailure();
     });
+    const zoomRadar = (change,id) => {
+      this.radarZoom = Math.min(7,Math.max(3,zoom + change));
+      this.renderRadar();
+      const control = this.$(id);
+      (control.disabled ? this.$(change > 0 ? 'radar-out' : 'radar-in') : control).focus({preventScroll:true});
+    };
+    this.$('radar-out').onclick = () => zoomRadar(-1,'radar-out');
+    this.$('radar-in').onclick = () => zoomRadar(1,'radar-in');
+    this.$('wind-rose-toggle').onclick = () => {
+      this.windRoseEnabled = !(this.windRoseEnabled ?? (this.read('windRose') === '1'));
+      this.write('windRose',this.windRoseEnabled ? '1' : '0');
+      this.drawWindRose();
+    };
+    this.drawWindRose();
     this.$('radar-time').onchange = event => {
       this.frameIndex = Number(event.target.value);
       this.renderRadar();
       this.$('radar-time').focus();
     };
+  }
+
+  drawWindRose() {
+    const host = this.$('radar');
+    const rose = host.querySelector('.wind-rose');
+    if (!rose) return;
+    const enabled = this.windRoseEnabled ?? (this.read('windRose') === '1');
+    rose.hidden = !enabled;
+    this.$('wind-rose-toggle').setAttribute('aria-pressed',String(enabled));
+    if (!enabled) return;
+
+    const sectors = Array.from({length:8},() => [0,0,0]);
+    const directions = ['N','NE','E','SE','S','SW','W','NW'];
+    let sampleCount = 0, calm = 0;
+    for (const hour of (this.data?.weather?.hourly || []).slice(0,24)) {
+      const speed = hour.native_wind_speed;
+      if (!Number.isFinite(speed) || speed < 0) continue;
+      if (speed < 1) { calm++; sampleCount++; continue; }
+      const direction = this.compass(hour.wind_bearing,speed);
+      const index = directions.indexOf(direction);
+      if (index < 0) continue;
+      sectors[index][speed < 10 ? 0 : speed < 25 ? 1 : 2]++;
+      sampleCount++;
+    }
+    const canvas = rose.querySelector('canvas');
+    const key = rose.querySelector('.wind-rose-key');
+    canvas.hidden = !sampleCount;
+    if (!sampleCount) {
+      key.textContent = 'Wind forecast unavailable';
+      return;
+    }
+    const totals = sectors.map(bands => bands.reduce((sum,count) => sum + count,0));
+    const maximum = Math.max(1,...totals);
+    const colors = ['#8dd7f7','#f9c96c','#ff8a60'];
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0,0,176,176);
+    ctx.save();
+    ctx.translate(88,88);
+    ctx.strokeStyle = '#d4e3f458';
+    for (const radius of [20,40,60]) {
+      ctx.beginPath();
+      ctx.arc(0,0,radius,0,Math.PI*2);
+      ctx.stroke();
+    }
+    directions.forEach((direction,index) => {
+      const angle = (index-2)*Math.PI/4;
+      let from = 0;
+      sectors[index].forEach((count,band) => {
+        if (!count) return;
+        const to = from + count*60/maximum;
+        ctx.beginPath();
+        ctx.arc(0,0,to,angle-.29,angle+.29);
+        if (from) ctx.arc(0,0,from,angle+.29,angle-.29,true); else ctx.lineTo(0,0);
+        ctx.closePath();
+        ctx.fillStyle = colors[band];
+        ctx.fill();
+        from = to;
+      });
+      ctx.fillStyle = '#eef5fa';
+      ctx.font = 'bold 12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(direction,Math.cos(angle)*74,Math.sin(angle)*74);
+    });
+    ctx.restore();
+    const strongest = totals.indexOf(Math.max(...totals));
+    const dominant = totals[strongest] ? directions[strongest] + ' most frequent' : 'Calm';
+    canvas.setAttribute('aria-label',`Wind from: ${dominant}, ${sampleCount} forecast hours, ${calm} calm`);
+    const labels = this.imperial ? ['<6.2','6.2–15.5','≥15.5 mph'] : ['<10','10–25','≥25 km/h'];
+    key.innerHTML = labels.map((label,index) =>
+      `<span><i style="background:${colors[index]}"></i>${escape(label)}</span>`).join('');
   }
 
   renderAppearanceSettings() {
@@ -1231,6 +1331,22 @@ main[data-theme=trek] .daily .period .chance .accumulation{
  .forecast:has(#temperature-trend:not([hidden])) .period{gap:2px}
  .forecast:has(#temperature-trend:not([hidden])) .period .icon i{font-size:clamp(22px,7cqw,38px)}
 }
+
+.radar-map-area{position:relative;min-height:0}
+.radar-map-area .map{height:100%}
+.radar-tools{position:absolute;top:6px;right:6px;display:flex;gap:4px}
+.radar-tools button{background:#101a27;color:#eef5fa;border:1px solid #8297ad;font-weight:700;
+ border-radius:7px;min-width:36px;min-height:36px;padding:4px 7px;font:600 13px/1.1 system-ui}
+.radar-tools button[aria-pressed=true]{background:#d9ecfb;color:#132333}
+.radar-tools button:disabled{opacity:.55}
+.wind-rose{position:absolute;bottom:6px;left:6px;display:grid;justify-items:center;
+ width:min(136px,48%);padding:4px;color:#eef5fa;background:#0b1727ee;border-radius:8px;font:600 10px/1.15 system-ui}
+.wind-rose[hidden],.wind-rose canvas[hidden]{display:none}
+.wind-rose canvas{display:block;width:min(100%,104px,15vh);height:auto}
+.wind-rose-key{display:flex;justify-content:center;flex-wrap:wrap;gap:3px;color:#eef5fa!important;font-size:8px!important}
+.wind-rose-key span{white-space:nowrap}
+.wind-rose-key i{display:inline-block;width:6px;height:6px;margin-right:2px}
+@container(max-width:700px){.radar-tools button{min-width:40px;min-height:40px}.wind-rose canvas{width:min(100%,96px,13vh)}}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
