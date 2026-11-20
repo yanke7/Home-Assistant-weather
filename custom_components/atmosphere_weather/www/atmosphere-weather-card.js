@@ -250,13 +250,14 @@ class AtmosphereWeatherCard extends HTMLElement {
       <header><div class="brand"><span aria-hidden="true">◒</span><strong>Atmosphere</strong></div>
         <div class="actions"><select id="location" aria-label="Weather location"></select>
           <button id="settings" aria-label="Settings" title="Settings"><span class="gear">⚙</span><span class="trek-settings">Settings</span></button><div id="trek-time"></div></div></header>
-      <section id="hero" class="hero"><div id="sky-content"></div><dialog id="weather-details" class="reading-dialog" aria-labelledby="reading-title">
+      <section id="hero" class="hero"><div id="sky-content"></div></section>
+      <dialog id="weather-details" class="reading-dialog" aria-labelledby="reading-title">
         <div class="heading"><h2 id="reading-title"></h2><div class="actions">
           <button id="reading-gear" aria-label="Customize weather readings" title="Customize weather readings">⚙</button>
           <button id="reading-close" aria-label="Close weather details">✕</button>
         </div></div>
         <p id="reading-context"></p><dl id="reading-list"></dl>
-      </dialog></section>
+      </dialog>
       <section class="metrics" id="metrics" aria-label="Weather details"></section>
       <div class="outlook">
         <section class="panel forecast"><div class="heading"><h2 id="forecast-title">Forecast</h2>
@@ -1030,15 +1031,16 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 #reading-choices input{accent-color:var(--accent);flex:none}
 @container(max-width:400px){#reading-choices{grid-template-columns:1fr}}
 
-.hero #weather-details{
- position:absolute;inset:8px;margin:0;width:auto;max-width:none;max-height:none;height:auto;
+#shell{position:relative;grid-template-columns:minmax(0,1fr)}
+#weather-details{
+ position:absolute;grid-area:2 / 1 / 4 / 2;inset:0;margin:0;width:auto;max-width:none;max-height:none;height:auto;
  z-index:3;padding:8px 12px;border-radius:10px;overscroll-behavior:contain;
 }
-.hero #weather-details .heading{
+#weather-details .heading{
  position:sticky;top:-8px;z-index:1;background:var(--bg);padding-block:2px;
 }
-.hero #reading-context{margin:4px 0 6px}
-.hero #reading-list>div{padding:6px 0}
+#weather-details #reading-context{margin:4px 0 6px}
+#weather-details #reading-list>div{padding:6px 0}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
