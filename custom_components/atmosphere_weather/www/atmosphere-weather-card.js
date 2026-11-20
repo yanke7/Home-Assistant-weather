@@ -9,6 +9,12 @@ const themes = [
   ['appearance','Follow Appearance','var(--yanke-bg,var(--primary-background-color,#111827))',
     'var(--yanke-surface,var(--ha-card-background,#1f2937))','var(--yanke-accent,var(--primary-color,#80c7ff))'],
 ];
+const trekFont = new URL('./trek-oswald.woff2', import.meta.url).href;
+let trekFontPromise;
+function loadTrekFont() {
+  trekFontPromise ??= new FontFace('Atmosphere Console', 'url(' + trekFont + ')', {weight:'600'})
+    .load().then(font => document.fonts.add(font)).catch(() => {});
+}
 const trekLogo = new URL('./trek-logo.jpg?v=0.1.3', import.meta.url).href;
 const icons = {sunny:'☀','clear-night':'☾',partlycloudy:'⛅',cloudy:'☁',rainy:'☂',pouring:'☂',
   snowy:'❄','snowy-rainy':'❄',fog:'≋','lightning-rainy':'ϟ'};
@@ -170,6 +176,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     shell.dataset.theme = this.theme;
     const brand = shell.querySelector('.brand');
     if (this.theme === 'trek' && !brand.querySelector('img')) {
+      loadTrekFont();
       const logo = document.createElement('img');
       logo.src = trekLogo;
       logo.alt = 'Atmosphere & Weather Scan emblem';
@@ -196,11 +203,11 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.updateSky();
     this.$('sky-content').innerHTML = selected ? `<div class="current"><div class="kicker">${escape(selected.name)}</div>
        <div class="temperature">${this.temp(current.temperature_2m)}<sup>${this.imperial ? 'F' : 'C'}</sup></div>
-       <div class="condition">${escape(label || 'Waiting for weather')}</div></div>
+       <span class="trek-feels">Feels like ${this.temp(current.apparent_temperature)}</span><div class="condition">${escape(label || 'Waiting for weather')}</div></div>
        <div class="orb" aria-hidden="true"></div><div class="summary">
        <div>${this.date(new Date(),{weekday:'long',month:'short',day:'numeric'})}</div>
        <strong>H ${this.temp(current.temperature_high)} · L ${this.temp(current.temperature_low)}</strong>
-       <div>Feels like ${this.temp(current.apparent_temperature)}</div></div>`
+       <div class="summary-feels">Feels like ${this.temp(current.apparent_temperature)}</div></div>`
       : `<div class="current"><h2>${this.error ? 'Weather unavailable' : this.data ? 'Add a location in Settings' : 'Loading weather…'}</h2><p>${escape(this.error)}</p></div>`;
     const metrics = [
       ['Wind',this.wind(current.wind_speed_10m)],
@@ -522,6 +529,58 @@ main[data-theme=trek] .period small{background:#352716;color:var(--gold);width:1
  main[data-theme=trek] .heading{gap:4px}
  main[data-theme=trek] .summary strong{border-width:2px;padding:3px 4px}
  main[data-theme=trek][data-tab=radar] .radar{inset:45px 4px 4px}
+}
+
+.trek-feels{display:none}
+main[data-theme=trek]{--font:"Atmosphere Console","Arial Narrow",system-ui,sans-serif;font-weight:600;font-synthesis:none;gap:9px}
+main[data-theme=trek] header{border-bottom-width:14px;border-radius:0 36px 0 27px}
+main[data-theme=trek] .brand{letter-spacing:.045em}
+main[data-theme=trek] .brand img{width:clamp(46px,8vh,88px)}
+main[data-theme=trek] #location{font-size:clamp(13px,2.05cqw,32px);max-width:44cqw;padding-block:2px}
+main[data-theme=trek] #trek-time{font-size:clamp(11px,1.12cqw,18px)}
+main[data-theme=trek] :is(.panel,.hero){position:relative}
+main[data-theme=trek] :is(.panel,.hero)::before{
+ content:"";position:absolute;left:36px;right:24px;top:0;height:8px;pointer-events:none;
+ background:linear-gradient(90deg,var(--frame) 0 39%,#050505 39% 40%,var(--frame) 40% 52%,#050505 52% 53%,var(--segment,var(--frame)) 53% 87%,#050505 87% 89%,var(--frame) 89%);
+}
+main[data-theme=trek] .forecast{--segment:var(--orange)}
+main[data-theme=trek] .radar{--segment:#695bb2}
+main[data-theme=trek] .current{display:grid;grid-template-columns:auto auto;align-items:baseline;column-gap:15px}
+main[data-theme=trek] .kicker{display:none}
+main[data-theme=trek] .condition{grid-column:1/-1;letter-spacing:.025em}
+main[data-theme=trek] .trek-feels{display:block;font-size:clamp(12px,1.45cqw,22px)}
+main[data-theme=trek] .summary>div{display:none}
+main[data-theme=trek] .summary strong{font-size:clamp(16px,2.25cqw,34px);white-space:nowrap}
+main[data-theme=trek] .orb{top:50%;right:28%;translate:0 -50%;background:#dce8f0}
+main[data-theme=trek] .orb::before{
+ content:"";position:absolute;inset:-24%;border:1px dashed #a6bef665;border-radius:50%;
+ background:linear-gradient(#a6bef64d,#a6bef64d) center/100% 1px no-repeat,linear-gradient(#a6bef64d,#a6bef64d) center/1px 100% no-repeat;
+}
+main[data-theme=trek] .metrics>div{display:flex;flex-direction:row-reverse;justify-content:space-between;align-items:center;gap:4px}
+main[data-theme=trek] .metrics strong{font-size:clamp(17px,2.35cqw,34px);margin:0;white-space:nowrap}
+main[data-theme=trek] .metrics span{text-align:right;font-size:clamp(10px,1.12cqw,18px)}
+main[data-theme=trek] .period{background:#050505;border:0;gap:3px}
+main[data-theme=trek] .period small{font-size:clamp(11px,1.1cqw,18px);border-radius:10px 10px 0 0}
+main[data-theme=trek] .period .icon{width:100%;flex:1;display:grid;place-items:center;
+ border:solid var(--orange);border-width:6px 0 5px 5px;border-radius:14px 0 0 8px;font-size:clamp(19px,2.6cqw,36px)}
+main[data-theme=trek] .period strong{font-size:clamp(16px,2cqw,30px)}
+main[data-theme=trek] .period span:not(.icon){font-size:clamp(9px,.95cqw,15px)}
+main[data-theme=trek] .period .chance{width:100%;border-top:4px solid var(--violet);padding-top:2px}
+main[data-theme=trek] .map::after{content:"";position:absolute;inset:0;pointer-events:none;
+ background:repeating-radial-gradient(circle at center,transparent 0 43px,#41398366 44px 45px,transparent 46px 56px)}
+@container(max-width:700px){
+ main[data-theme=trek] header{border-bottom-width:6px}
+ main[data-theme=trek] .brand img{width:31px}
+ main[data-theme=trek] #location{max-width:27cqw;font-size:11px}
+ main[data-theme=trek] #trek-time{font-size:9px}
+ main[data-theme=trek] :is(.panel,.hero)::before{height:4px}
+ main[data-theme=trek] .current{column-gap:6px}
+ main[data-theme=trek] .orb{right:27%;width:42px}
+ main[data-theme=trek] .orb::before{inset:-15%}
+ main[data-theme=trek] .metrics>div{flex-direction:column-reverse;justify-content:center;align-items:flex-start}
+ main[data-theme=trek] .metrics span{text-align:left}
+ main[data-theme=trek] .metrics strong{font-size:13px}
+ main[data-theme=trek] .period .icon{border-width:4px 0 3px 3px}
 }
 
 `;

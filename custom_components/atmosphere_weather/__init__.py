@@ -13,7 +13,7 @@ from .websocket import register
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = [Platform.WEATHER, Platform.SENSOR, Platform.BINARY_SENSOR]
 CARD_PATH = "/atmosphere_weather/atmosphere-weather-card.js"
-CARD_URL = f"{CARD_PATH}?v=0.1.3"
+CARD_URL = f"{CARD_PATH}?v=0.1.4"
 
 
 async def async_setup(hass, config):
@@ -21,6 +21,7 @@ async def async_setup(hass, config):
         StaticPathConfig(CARD_PATH, str(Path(__file__).parent / "www" / "atmosphere-weather-card.js"), False),
         StaticPathConfig("/atmosphere_weather/sky.js", str(Path(__file__).parent / "www" / "sky.js"), False),
         StaticPathConfig("/atmosphere_weather/trek-logo.jpg", str(Path(__file__).parent / "www" / "trek-logo.jpg"), False),
+        StaticPathConfig("/atmosphere_weather/trek-oswald.woff2", str(Path(__file__).parent / "www" / "trek-oswald.woff2"), False),
     ])
     register(hass)
     frontend.add_extra_js_url(hass, CARD_URL)
