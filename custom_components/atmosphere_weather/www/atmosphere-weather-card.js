@@ -250,7 +250,13 @@ class AtmosphereWeatherCard extends HTMLElement {
       <header><div class="brand"><span aria-hidden="true">◒</span><strong>Atmosphere</strong></div>
         <div class="actions"><select id="location" aria-label="Weather location"></select>
           <button id="settings" aria-label="Settings" title="Settings"><span class="gear">⚙</span><span class="trek-settings">Settings</span></button><div id="trek-time"></div></div></header>
-      <section id="hero" class="hero"><div id="sky-content"></div></section>
+      <section id="hero" class="hero"><div id="sky-content"></div><dialog id="weather-details" class="reading-dialog" aria-labelledby="reading-title">
+        <div class="heading"><h2 id="reading-title"></h2><div class="actions">
+          <button id="reading-gear" aria-label="Customize weather readings" title="Customize weather readings">⚙</button>
+          <button id="reading-close" aria-label="Close weather details">✕</button>
+        </div></div>
+        <p id="reading-context"></p><dl id="reading-list"></dl>
+      </dialog></section>
       <section class="metrics" id="metrics" aria-label="Weather details"></section>
       <div class="outlook">
         <section class="panel forecast"><div class="heading"><h2 id="forecast-title">Forecast</h2>
@@ -265,13 +271,6 @@ class AtmosphereWeatherCard extends HTMLElement {
        <div class="tabs settings-tabs"><button data-settings="locations">Locations</button><button data-settings="appearance">Appearance</button><button data-settings="data">Data</button></div>
        <div id="settings-content"></div><p id="notice" role="status"></p>
       </dialog>
-      <dialog id="weather-details" class="reading-dialog" aria-labelledby="reading-title">
-        <div class="heading"><h2 id="reading-title"></h2><div class="actions">
-          <button id="reading-gear" aria-label="Customize weather readings" title="Customize weather readings">⚙</button>
-          <button id="reading-close" aria-label="Close weather details">✕</button>
-        </div></div>
-        <p id="reading-context"></p><dl id="reading-list"></dl>
-      </dialog>
       <dialog id="reading-settings" class="reading-dialog" aria-labelledby="reading-settings-title">
         <div class="heading"><h2 id="reading-settings-title">Choose readings</h2>
           <button id="reading-settings-close" aria-label="Back to weather details">✕</button></div>
@@ -282,6 +281,9 @@ class AtmosphereWeatherCard extends HTMLElement {
       this.settingsPanel('locations');
       this.$('dialog').showModal();
     };
+    this.$('weather-details').addEventListener('keydown', event => {
+      if (event.key === 'Escape') this.$('weather-details').close();
+    });
     this.$('reading-close').onclick = () => this.$('weather-details').close();
     this.$('reading-gear').onclick = () => this.openReadingSettings();
     this.$('reading-settings-close').onclick = () => this.$('reading-settings').close();
@@ -292,6 +294,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     };
     this.$('close').onclick = () => this.$('dialog').close();
     this.$('location').onchange = event => {
+      this.$('weather-details').close();
       this.selection = event.target.value;
       this.write('location', this.selection);
       this.data.selected = this.data.locations.find(item => item.id === this.selection);
@@ -309,7 +312,7 @@ class AtmosphereWeatherCard extends HTMLElement {
         this.loadRadar();
       }
       if (button?.dataset.reading) this.openReadings(button.dataset.reading,Number(button.dataset.period));
-      else if (!button && event.target.closest('.hero')) this.openReadings('current');
+      else if (!button && event.target.closest('.hero') && !event.target.closest('dialog')) this.openReadings('current');
       if (button?.dataset.settings) this.settingsPanel(button.dataset.settings);
     });
     this.render();
@@ -454,7 +457,12 @@ class AtmosphereWeatherCard extends HTMLElement {
       ...(kind === 'daily' ? {} : {hour:'numeric',minute:'2-digit',timeZoneName:'short'})}) : '';
     this.$('reading-context').textContent = [this.reading.location,date,this.reading.fresh ? '' : 'Last available data'].filter(Boolean).join(' · ');
     this.renderReadings();
-    this.$('weather-details').showModal();
+    const panel = this.$('weather-details');
+    if (!panel.open) {
+      const trigger = this.shadowRoot.activeElement;
+      panel.show();
+      trigger?.focus({preventScroll:true});
+    }
   }
 
   readingRows() {
@@ -1021,6 +1029,16 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 #reading-choices label{display:flex;align-items:center;min-height:34px}
 #reading-choices input{accent-color:var(--accent);flex:none}
 @container(max-width:400px){#reading-choices{grid-template-columns:1fr}}
+
+.hero #weather-details{
+ position:absolute;inset:8px;margin:0;width:auto;max-width:none;max-height:none;height:auto;
+ z-index:3;padding:8px 12px;border-radius:10px;overscroll-behavior:contain;
+}
+.hero #weather-details .heading{
+ position:sticky;top:-8px;z-index:1;background:var(--bg);padding-block:2px;
+}
+.hero #reading-context{margin:4px 0 6px}
+.hero #reading-list>div{padding:6px 0}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
