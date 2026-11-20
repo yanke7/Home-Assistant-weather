@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a location",
+        "data": {
+          "name": "Location name",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "timezone": "Time zone (IANA, e.g. Europe/Paris)"
+        }
+      }
+    },
+    "error": {
+      "invalid_location": "Enter a name, valid coordinates and IANA time zone.",
+      "duplicate_location": "This location is already saved.",
+      "location_limit": "Up to 20 locations can be saved."
+    },
+    "abort": {
+      "single_instance_allowed": "Atmosphere Weather is already configured."
+    }
+  },
+  "config_subentries": {
+    "location": {
+      "entry_type": "Location",
+      "step": {
+        "user": {
+          "title": "Add a location",
+          "data": {
+            "name": "Location name",
+            "latitude": "Latitude",
+            "longitude": "Longitude",
+            "timezone": "Time zone (IANA, e.g. Europe/Paris)"
+          }
+        },
+        "reconfigure": {
+          "title": "Edit location",
+          "data": {
+            "name": "Location name",
+            "latitude": "Latitude",
+            "longitude": "Longitude",
+            "timezone": "Time zone (IANA, e.g. Europe/Paris)"
+          }
+        }
+      },
+      "error": {
+        "invalid_location": "Enter a name, valid coordinates and IANA time zone.",
+        "duplicate_location": "This location is already saved.",
+        "location_limit": "Up to 20 locations can be saved."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Weather provider",
+        "data": {
+          "api_key": "Optional Open-Meteo commercial API key",
+          "radar": "Enable RainViewer personal-use radar"
+        }
+      }
+    }
+  }
+}

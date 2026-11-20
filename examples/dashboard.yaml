@@ -1,0 +1,6 @@
+views:
+  - title: Weather
+    path: weather
+    type: panel
+    cards:
+      - type: custom:atmosphere-weather-card

@@ -1,0 +1,159 @@
+"""Authenticated frontend and admin-only location management."""
+from types import MappingProxyType
+import re
+import time
+
+import aiohttp
+import voluptuous as vol
+from homeassistant.components import websocket_api as ws
+from homeassistant.config_entries import ConfigSubentry
+from homeassistant.helpers import entity_registry
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from .config_flow import LIMIT, clean_location, location_key
+from .coordinator import DOMAIN
+
+PREFIX = DOMAIN + "/"
+LOCATION = {
+    vol.Required("name"): str,
+    vol.Required("latitude"): vol.Coerce(float),
+    vol.Required("longitude"): vol.Coerce(float),
+    vol.Required("timezone"): str,
+}
+
+
+def loaded(hass):
+    return next(iter(hass.config_entries.async_loaded_entries(DOMAIN)), None)
+
+
+def location_entity(hass, connection, location_id):
+    entity_id = entity_registry.async_get(hass).async_get_entity_id("weather", DOMAIN, f"{location_id}_weather")
+    if entity_id and connection.user.permissions.check_entity(entity_id, "read"):
+        return entity_id
+    return None
+
+
+@ws.websocket_command({vol.Required("type"): PREFIX + "snapshot", vol.Optional("location"): str})
+@ws.async_response
+async def snapshot(hass, connection, msg):
+    entry = loaded(hass)
+    if entry is None:
+        connection.send_error(msg["id"], "not_loaded", "Set up Atmosphere Weather in Devices & services.")
+        return
+    locations = []
+    allowed = {}
+    for location in entry.subentries.values():
+        entity = location_entity(hass, connection, location.subentry_id)
+        if entity or connection.user.is_admin:
+            item = {"id": location.subentry_id, **location.data, "entity": entity}
+            locations.append(item)
+            allowed[item["id"]] = item
+    selected = allowed.get(msg.get("location")) or next(iter(locations), None)
+    coordinator = entry.runtime_data.get(selected["id"]) if selected else None
+    connection.send_result(msg["id"], {
+        "locations": locations, "selected": selected,
+        "weather": coordinator.data if coordinator else None,
+        "fresh": bool(coordinator and coordinator.last_update_success and coordinator.data),
+        "radar": entry.options.get("radar", True) and not entry.options.get("api_key"),
+    })
+
+
+@ws.websocket_command({
+    vol.Required("type"): PREFIX + "save_location", vol.Optional("location"): str, **LOCATION,
+})
+@ws.require_admin
+@ws.async_response
+async def save_location(hass, connection, msg):
+    entry = loaded(hass)
+    if entry is None:
+        connection.send_error(msg["id"], "not_loaded", "Atmosphere Weather is loading.")
+        return
+    try:
+        data = clean_location(msg)
+        key = location_key(data)
+        existing = entry.subentries.get(msg.get("location"))
+        if msg.get("location") and existing is None:
+            raise ValueError("This location was removed.")
+        if any(item.unique_id == key and item != existing for item in entry.subentries.values()):
+            raise ValueError("This location is already saved.")
+        if existing is None:
+            if len(entry.subentries) >= LIMIT:
+                raise ValueError(f"Save up to {LIMIT} locations.")
+            existing = ConfigSubentry(data=MappingProxyType(data), title=data["name"],
+                                      subentry_type="location", unique_id=key)
+            hass.config_entries.async_add_subentry(entry, existing)
+        else:
+            hass.config_entries.async_update_subentry(entry, existing, data=data, title=data["name"], unique_id=key)
+    except ValueError as error:
+        connection.send_error(msg["id"], "invalid_location", str(error))
+        return
+    connection.send_result(msg["id"], {"location": existing.subentry_id})
+
+
+@ws.websocket_command({vol.Required("type"): PREFIX + "remove_location", vol.Required("location"): str})
+@ws.require_admin
+@ws.async_response
+async def remove_location(hass, connection, msg):
+    entry = loaded(hass)
+    if entry is None or msg["location"] not in entry.subentries:
+        connection.send_error(msg["id"], "not_found", "Location no longer exists.")
+        return
+    hass.config_entries.async_remove_subentry(entry, msg["location"])
+    connection.send_result(msg["id"])
+
+
+async def get_json(hass, url, params=None):
+    async with async_get_clientsession(hass).get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+        resp.raise_for_status()
+        return await resp.json()
+
+
+@ws.websocket_command({vol.Required("type"): PREFIX + "search", vol.Required("query"): str})
+@ws.require_admin
+@ws.async_response
+async def search(hass, connection, msg):
+    query = msg["query"].strip()
+    if not 2 <= len(query) <= 100:
+        connection.send_error(msg["id"], "invalid_query", "Enter 2 to 100 characters.")
+        return
+    try:
+        data = await get_json(hass, "https://geocoding-api.open-meteo.com/v1/search",
+                              {"name": query, "count": 8, "language": "en", "format": "json"})
+        results = [
+            dict(name=", ".join(dict.fromkeys(part for part in (row.get("name"), row.get("admin1"), row.get("country")) if part))[:80],
+                 latitude=row["latitude"], longitude=row["longitude"], timezone=row["timezone"])
+            for row in data.get("results", []) if row.get("timezone")
+        ]
+    except (aiohttp.ClientError, TimeoutError, ValueError, KeyError):
+        connection.send_error(msg["id"], "unavailable", "Location search is temporarily unavailable.")
+        return
+    connection.send_result(msg["id"], results)
+
+
+@ws.websocket_command({vol.Required("type"): PREFIX + "radar", vol.Required("location"): str})
+@ws.async_response
+async def radar(hass, connection, msg):
+    entry = loaded(hass)
+    if (entry is None or not entry.options.get("radar", True) or entry.options.get("api_key")
+            or msg["location"] not in entry.subentries
+            or not (connection.user.is_admin or location_entity(hass, connection, msg["location"]))):
+        connection.send_error(msg["id"], "unavailable", "Radar is unavailable or disabled.")
+        return
+    now = time.monotonic()
+    last, frames = hass.data.get(PREFIX + "radar_cache", (-1000, []))
+    if now - last >= 300:
+        hass.data[PREFIX + "radar_cache"] = now, frames
+        try:
+            data = await get_json(hass, "https://api.rainviewer.com/public/weather-maps.json")
+            frames = [item for item in data["radar"]["past"][-6:]
+                      if isinstance(item.get("time"), int) and isinstance(item.get("path"), str)
+                      and re.fullmatch(r"/v2/radar/[A-Za-z0-9_/-]+", item["path"])]
+        except (aiohttp.ClientError, TimeoutError, ValueError, KeyError):
+            frames = []
+        hass.data[PREFIX + "radar_cache"] = now, frames
+    connection.send_result(msg["id"], [frame for frame in frames if time.time() - frame["time"] <= 7200])
+
+
+def register(hass):
+    for command in (snapshot, save_location, remove_location, search, radar):
+        ws.async_register_command(hass, command)
