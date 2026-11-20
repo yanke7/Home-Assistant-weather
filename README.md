@@ -34,6 +34,12 @@ Find the device for your location under the integration. Its native weather enti
 
 Use **Freezing** for temperatures at or below 0 °C, **Daylight** for the provider's day/night flag, and **Precipitation expected** for at least 50% probability in the next forecast hour. Weather is model-based. The current precipitation sensor is an amount over the provider's current interval, typically 15 minutes. Failed refreshes mark the entities unavailable. The card may display the previous snapshot with its last update time.
 
+## Official weather alerts
+
+For supported locations in Canada and the United States, Atmosphere displays active warnings, watches, and advisories beneath current conditions. Tap the banner to read the alert, affected area, expiry, and issuing agency. The banner is hidden when no active alert is available.
+
+Home Assistant queries [ECCC GeoMet](https://eccc-msc.github.io/open-data/msc-data/alerts/readme_alerts-geomet_en/) and the [U.S. National Weather Service](https://www.weather.gov/documentation/services-web-alerts) using the selected location's coordinates. The dashboard refreshes about once a minute and the integration caches successful agency responses for two minutes. This is a dashboard display and does not send emergency notifications.
+
 ## Providers and privacy
 
 Home Assistant sends each location's coordinates and time zone to [Open-Meteo](https://open-meteo.com/en/docs) on a 15-minute schedule. City and postal searches use its geocoding API. The default endpoint is for personal, non-commercial use. An optional commercial Open-Meteo key can be set in the integration options. [Open-Meteo pricing](https://open-meteo.com/en/pricing)

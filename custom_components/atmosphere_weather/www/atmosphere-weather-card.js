@@ -231,6 +231,7 @@ class AtmosphereWeatherCard extends HTMLElement {
       this.error = '';
       this.render();
       this.loadRadar();
+      this.loadWeatherAlerts(request);
     } catch (error) {
       if (request !== this.request) return;
       if (retries > 0 && error.code === 'not_loaded') {
@@ -258,7 +259,10 @@ class AtmosphereWeatherCard extends HTMLElement {
         </div></div>
         <p id="reading-context"></p><dl id="reading-list"></dl>
       </dialog>
-      <section class="metrics" id="metrics" aria-label="Weather details"></section>
+      <div class="conditions-strip">
+        <button id="alert-banner" type="button" hidden aria-haspopup="dialog"></button>
+        <section class="metrics" id="metrics" aria-label="Weather details"></section>
+      </div>
       <div class="outlook">
         <section class="panel forecast"><div class="heading"><h2 id="forecast-title">Forecast</h2>
           <div class="tabs"><button data-tab="hourly">Hourly</button><button data-tab="daily">Daily</button>
@@ -275,6 +279,10 @@ class AtmosphereWeatherCard extends HTMLElement {
         <section><h3>Data</h3><p>Open-Meteo receives saved coordinates and location searches. Home Assistant serves the base map and RainViewer supplies precipitation tiles. Provider and radar controls are under Devices &amp; services → Atmosphere Weather → Configure.</p></section>
        </div>
       </dialog>
+      <dialog id="alerts-dialog" aria-labelledby="alerts-title">
+        <div class="heading"><h2 id="alerts-title">Active weather alerts</h2><button id="alerts-close" aria-label="Close weather alerts">✕</button></div>
+        <div id="alerts-list"></div>
+      </dialog>
       <dialog id="reading-settings" class="reading-dialog" aria-labelledby="reading-settings-title">
         <div class="heading"><h2 id="reading-settings-title">Choose readings</h2>
           <button id="reading-settings-close" aria-label="Back to weather details">✕</button></div>
@@ -290,6 +298,8 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.$('weather-details').addEventListener('keydown', event => {
       if (event.key === 'Escape') this.$('weather-details').close();
     });
+    this.$('alert-banner').onclick = () => this.$('alerts-dialog').showModal();
+    this.$('alerts-close').onclick = () => this.$('alerts-dialog').close();
     this.$('reading-close').onclick = () => this.$('weather-details').close();
     this.$('reading-gear').onclick = () => this.openReadingSettings();
     this.$('reading-settings-close').onclick = () => this.$('reading-settings').close();
@@ -301,6 +311,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.$('close').onclick = () => this.$('dialog').close();
     this.$('location').onchange = event => {
       this.$('weather-details').close();
+      this.$('alerts-dialog').close();
       this.selection = event.target.value;
       this.write('location', this.selection);
       this.data.selected = this.data.locations.find(item => item.id === this.selection);
@@ -449,6 +460,7 @@ class AtmosphereWeatherCard extends HTMLElement {
       ? this.date(new Date(), {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
         + (current.updated_at ? ' · ' + this.$('status').textContent : '') : '';
     this.renderRadar();
+    this.renderWeatherAlerts();
   }
 
   openReadings(kind,index) {
@@ -539,6 +551,43 @@ class AtmosphereWeatherCard extends HTMLElement {
     };
     const dialog = this.$('reading-settings');
     if (!dialog.open) dialog.showModal();
+  }
+
+  async loadWeatherAlerts(request) {
+    const location = this.data?.selected?.id;
+    if (!location) return;
+    try {
+      const items = await this.call('alerts',{location});
+      if (request !== this.request || location !== this.data?.selected?.id) return;
+      this.weatherAlerts = {location,items};
+    } catch {
+      if (request !== this.request) return;
+    }
+    this.renderWeatherAlerts();
+  }
+
+  renderWeatherAlerts() {
+    const banner = this.$('alert-banner');
+    const items = this.weatherAlerts?.location === this.data?.selected?.id
+      ? (this.weatherAlerts?.items || []).filter(item => Date.parse(item.expires) > Date.now()) : [];
+    banner.hidden = !items.length;
+    this.$('shell').classList.toggle('has-alerts',Boolean(items.length));
+    if (!items.length) {
+      this.$('alerts-dialog').close();
+      return;
+    }
+    const first = items[0];
+    banner.dataset.kind = first.kind;
+    banner.innerHTML = `<strong>${escape(first.kind)}</strong><span>${escape(first.title)}</span><b>${items.length > 1 ? '+' + (items.length - 1) : '›'}</b>`;
+    const agencies = {ECCC:['Environment and Climate Change Canada','https://weather.gc.ca/warnings/'],
+      NWS:['National Weather Service','https://www.weather.gov/alerts']};
+    this.$('alerts-list').innerHTML = items.map(item => {
+      const [name,url] = agencies[item.source] || ['Official weather agency',''];
+      return `<article><h3>${escape(item.title)}</h3>
+        <p>${escape(item.area)} · Expires ${escape(this.date(item.expires,{weekday:'short',hour:'numeric',minute:'2-digit',timeZoneName:'short'}))}</p>
+        <p class="alert-description">${escape(item.description)}</p>
+        <a href="${url}" target="_blank" rel="noopener">${name}</a></article>`;
+    }).join('');
   }
 
   async loadRadar() {
@@ -724,7 +773,7 @@ const CSS = `
 *{box-sizing:border-box}
 main{--ink:#edf3f5;--muted:#b3c5d2;--line:#ffffff20;--font:Manrope,"Avenir Next",system-ui,sans-serif;
  color-scheme:dark;color:var(--ink);background:var(--bg,#101923);font:14px var(--font);font-variant-numeric:tabular-nums;
- display:grid;grid-template-rows:42px minmax(130px,.9fr) 67px minmax(190px,1.1fr) auto;gap:12px;padding:16px 24px;
+ display:grid;grid-template-rows:42px minmax(130px,.9fr) calc(67px + var(--alert-height,0px)) minmax(190px,1.1fr) auto;gap:12px;padding:16px 24px;
  min-height:540px;height:calc(100dvh - var(--header-height,56px))}
 main[data-theme=appearance]{color-scheme:var(--yanke-scheme,normal);--ink:var(--yanke-text,var(--primary-text-color,#edf3f5));
  --muted:var(--yanke-muted,var(--secondary-text-color,#b3c5d2));--line:var(--yanke-line,var(--divider-color,#ffffff20));
@@ -770,7 +819,7 @@ dialog::backdrop{background:#071019aa}.themes,.coordinates{display:grid;grid-tem
 main[data-theme=neon] .panel{box-shadow:inset 0 0 24px #28deef14}
 @container(max-width:900px){.hourly .period:nth-child(n+7){display:none}.periods.hourly{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @container(max-width:700px){
- main{min-height:510px;padding:8px 12px;gap:8px;grid-template-rows:38px minmax(112px,.8fr) 64px minmax(170px,1fr) auto}
+ main{min-height:510px;padding:8px 12px;gap:8px;grid-template-rows:38px minmax(112px,.8fr) calc(64px + var(--alert-height,0px)) minmax(170px,1fr) auto}
  .brand{font-size:17px}.hero{padding:12px 15px}.metrics{gap:5px}.metrics>div{padding:7px 5px}.metrics span{font-size:.66em}
  .metrics strong{font-size:.9em}.outlook{display:block;position:relative;height:100%}.forecast{height:100%}.radar{display:none}
  .mobile-tab{display:block}
@@ -781,7 +830,7 @@ main[data-theme=trek]{
  --gold:#f3c969;--orange:#ff9955;--blue:#a6bef6;--violet:#9b91dd;--ink:var(--gold);
  --muted:#e2ba75;--font:"Avenir Next Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
  --rail:clamp(16px,4cqw,66px);background:#050505;padding-inline-start:calc(var(--rail) + 16px);
- position:relative;grid-template-rows:clamp(60px,10vh,100px) minmax(130px,.9fr) 65px minmax(190px,1.1fr) auto;
+ position:relative;grid-template-rows:clamp(60px,10vh,100px) minmax(130px,.9fr) calc(65px + var(--alert-height,0px)) minmax(190px,1.1fr) auto;
 }
 main[data-theme=trek]::before{
  content:"";position:absolute;inset:16px auto 30px 8px;width:var(--rail);border-radius:44px 0 0 44px;
@@ -827,7 +876,7 @@ main[data-theme=trek] .period{
 }
 main[data-theme=trek] .period small{background:#352716;color:var(--gold);width:100%;padding:3px 0;font-weight:800}
 @container(max-width:700px){
- main[data-theme=trek]{--rail:8px;padding:8px 8px 8px 21px;grid-template-rows:58px minmax(110px,.7fr) 66px minmax(185px,1fr) auto}
+ main[data-theme=trek]{--rail:8px;padding:8px 8px 8px 21px;grid-template-rows:58px minmax(110px,.7fr) calc(66px + var(--alert-height,0px)) minmax(185px,1fr) auto}
  main[data-theme=trek]::before{inset-block:8px 24px;border-radius:8px 0 0 8px}
  main[data-theme=trek] header{border-bottom-width:6px;padding:0 2px 3px;border-radius:0 0 0 12px}
  main[data-theme=trek] .brand{gap:4px;font-size:clamp(15px,4.5cqw,24px)}
@@ -939,10 +988,10 @@ main[data-theme=trek] header::after{
 main[data-theme=trek] .brand{gap:var(--brand-gap)}
 main[data-theme=trek] .brand img{width:var(--emblem);position:relative;top:6px;z-index:1}
 main[data-theme=trek]{
- grid-template-rows:clamp(87px,13vh,118px) minmax(130px,.9fr) 65px minmax(190px,1.1fr) auto;
+ grid-template-rows:clamp(87px,13vh,118px) minmax(130px,.9fr) calc(65px + var(--alert-height,0px)) minmax(190px,1.1fr) auto;
 }
 @container(max-width:700px){
- main[data-theme=trek]{grid-template-rows:61px minmax(110px,.7fr) 66px minmax(185px,1fr) auto}
+ main[data-theme=trek]{grid-template-rows:61px minmax(110px,.7fr) calc(66px + var(--alert-height,0px)) minmax(185px,1fr) auto}
  main[data-theme=trek] header{--emblem:clamp(36px,10.4cqw,48px);--brand-gap:4px;--header-inset:2px;padding:0 2px 7px}
  main[data-theme=trek] header::after{height:5px}
  main[data-theme=trek] .brand img{top:3px}
@@ -974,7 +1023,7 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
 @container(max-width:700px){
  main,main[data-theme=trek],main[data-theme=appearance]{
    height:var(--atmosphere-available-height,calc(100dvh - var(--header-height,56px)));
-   min-height:465px;gap:6px;grid-template-rows:auto minmax(104px,.65fr) 63px minmax(194px,1fr) auto;
+   min-height:465px;gap:6px;grid-template-rows:auto minmax(104px,.65fr) calc(63px + var(--alert-height,0px)) minmax(194px,1fr) auto;
  }
  main[data-theme=trek] header{min-height:56px}
  main:not([data-theme=trek]) header{min-height:38px}
@@ -998,7 +1047,7 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
  .forecast .tabs button{width:100%;min-height:42px;font-size:15px;padding:6px 8px}
  main[data-tab=radar] #periods{display:none}
  main[data-tab=radar] #mobile-radar-slot{display:flex}
- main[data-tab=radar]{grid-template-rows:auto minmax(104px,.3fr) 63px minmax(194px,1fr) auto}
+ main[data-tab=radar]{grid-template-rows:auto minmax(104px,.3fr) calc(63px + var(--alert-height,0px)) minmax(194px,1fr) auto}
 }
 
 /* Daily snow totals must not change the height of the framed icon. */
@@ -1059,6 +1108,19 @@ main[data-theme=trek] .daily .period .chance .accumulation{
  #weather-details #reading-context{margin:2px 0 4px}
  #weather-details #reading-list>div:only-child{grid-column:1/-1}
 }
+
+#shell.has-alerts{--alert-height:40px;min-height:505px}
+.conditions-strip{display:grid;grid-template-rows:minmax(0,1fr);min-height:0}
+.has-alerts .conditions-strip{grid-template-rows:34px minmax(0,1fr);gap:6px}
+#alert-banner{display:flex;align-items:center;gap:8px;min-width:0;border:1px solid #f2a951;
+ background:#41250d;color:#ffe2a9;border-radius:8px;text-align:left;padding:4px 9px}
+#alert-banner[hidden]{display:none}
+#alert-banner[data-kind=warning]{border-color:#ff8174;background:#671f20;color:#fff0ed}
+#alert-banner strong{text-transform:uppercase;font-size:.85em;flex:none}
+#alert-banner span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#alerts-list article{padding:12px 0;border-bottom:1px solid var(--line)}
+#alerts-list .alert-description{white-space:pre-line}
+#alerts-list a{color:var(--accent)}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);

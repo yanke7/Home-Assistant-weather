@@ -6,6 +6,7 @@ import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .alerts import Alerts
 from .provider import CURRENT, DAILY, HOURLY, normalize
 
 DOMAIN = "atmosphere_weather"
@@ -17,6 +18,7 @@ class WeatherCoordinator(DataUpdateCoordinator):
         super().__init__(hass, LOGGER, config_entry=entry, name=location.title,
                          update_interval=timedelta(minutes=15))
         self.location = location
+        self.alerts = Alerts(hass, location.data)
         self.options = entry.options
         self.failures = 0
         self.last_update_success = False

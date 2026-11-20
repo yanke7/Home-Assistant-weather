@@ -154,6 +154,21 @@ async def radar(hass, connection, msg):
     connection.send_result(msg["id"], [frame for frame in frames if time.time() - frame["time"] <= 7200])
 
 
+@ws.websocket_command({vol.Required("type"): PREFIX + "alerts", vol.Required("location"): str})
+@ws.async_response
+async def alerts(hass, connection, msg):
+    entry = loaded(hass)
+    identifier = msg["location"]
+    if not entry or identifier not in entry.subentries or not (
+        connection.user.is_admin or location_entity(hass, connection, identifier)
+    ):
+        connection.send_error(msg["id"], "unavailable", "Weather alerts are unavailable.")
+        return
+    coordinator = entry.runtime_data.get(identifier)
+    connection.send_result(msg["id"], await coordinator.alerts.get() if coordinator else [])
+
+
+
 def register(hass):
-    for command in (snapshot, save_location, remove_location, search, radar):
+    for command in (snapshot, save_location, remove_location, search, radar, alerts):
         ws.async_register_command(hass, command)
