@@ -4,6 +4,10 @@ Atmosphere bundles a weather dashboard, worldwide Open-Meteo forecasts, recent p
 
 ## Watch the dashboard demo
 
+[![Animated 25-second tour of the weather dashboard, radar, themes and settings](docs/features/dashboard-demo.gif)](https://github.com/user-attachments/assets/d705aa0d-a89f-4dd0-9074-667555b3e00b)
+
+Tap the preview to open the full-resolution video.
+
 https://github.com/user-attachments/assets/d705aa0d-a89f-4dd0-9074-667555b3e00b
 
 [Download the 25-second demo (MP4)](https://github.com/yanke7/Home-Assistant-weather/releases/download/v0.1.34/atmosphere-weather-demo.mp4). See the dashboard, radar, city cameras, themes, and language settings, plus an example of using weather entities in an automation.
@@ -46,6 +50,26 @@ Use a unique optional `storage_key` per dashboard card to keep its browser prefe
 - **Optional camera per location:** Under **Settings → Locations → Edit**, choose a Home Assistant camera or enter a direct browser-playable URL. The preview opens full screen when tapped and closes when tapped again. The dashboard hides the preview for locations without a camera.
 - **Camera formats:** Select image mode for MJPEG or a snapshot URL, or video mode for MP4 and browser-native HLS. When a direct video clip ends, the card requests and plays the latest available clip from the same URL. For RTSP, use a Home Assistant camera entity. Use an HTTPS feed for a dashboard served over HTTPS.
 - **Home thermostat:** Select a climate entity under **Home thermostat** for the Home location. The card shows the reported room temperature, or the target if room temperature is unavailable. Tap it to open the thermostat dial. Adjust the setpoint with the dial or step buttons, use quick temperature presets, and choose HVAC and fan modes when supported by the climate entity. The panel follows your dashboard colors and uses a segmented climate console in the Star Trek theme. Use the thermostat gear to change all three preset names and temperatures. Presets are shared between the two designs and saved in the browser. The panel shows indoor humidity when the entity reports it.
+
+#### Camera previews on desktop and phone
+
+A camera beside the current conditions lets you compare the forecast with the sky outside. On a phone the preview moves into the lower-right corner of the weather panel. These examples show the same Honolulu camera image with sample weather and thermostat readings.
+
+![Desktop current conditions with the Honolulu camera beside the weather](docs/features/camera-1440.jpg)
+
+![Phone current conditions with the Honolulu camera in the lower-right corner](docs/features/camera-390.jpg)
+
+#### Control the Home thermostat
+
+Tap the indoor temperature in the Home weather panel. **Indoor** shows the measured room temperature. The large number in the dial is the target. Tap **+** or **−** to adjust it by one supported step, or tap a named preset to request its temperature.
+
+| Standard thermostat | Star Trek thermostat |
+| --- | --- |
+| ![Standard thermostat with temperature dial, presets and mode controls](docs/features/thermostat-1440.jpg) | ![Star Trek thermostat with segmented dial and compact mode selectors](docs/features/thermostat-390.jpg) |
+
+Open the thermostat gear, enter the three names and temperatures you want, then tap **Save presets**. Saving edits the shortcuts. Tapping a shortcut applies it to the thermostat.
+
+![Thermostat settings for the three named temperature presets](docs/features/thermostat-presets.jpg)
 
 ### Appearance, units, and languages
 
