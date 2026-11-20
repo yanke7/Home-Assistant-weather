@@ -1,4 +1,4 @@
-import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.37';
+import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.38';
 import {languages,translate} from './translations.js?v=0.1.34';
 
 const themes = [

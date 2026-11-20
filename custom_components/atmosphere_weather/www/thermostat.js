@@ -167,7 +167,7 @@ export class ThermostatControls {
       this.update();
     };
     card.$('climate-close').onclick = () => this.dialog.close();
-    this.dialog.addEventListener('close', () => { this.draft = null; this.pointer = null; this.settings.close(); });
+    this.dialog.addEventListener('close', () => { this.clearRequested(); this.draft = null; this.pointer = null; this.settings.close(); });
     card.$('climate-down').onclick = () => this.adjust(-1);
     card.$('climate-up').onclick = () => this.adjust(1);
     this.track.onkeydown = event => {
@@ -230,7 +230,11 @@ export class ThermostatControls {
     const supports = value => Boolean(attributes.supported_features & value);
     this.range = supports(feature.range) && Number.isFinite(attributes.target_temp_low)
       && Number.isFinite(attributes.target_temp_high) && (state?.state === 'heat_cool' || !supports(feature.target) || attributes.temperature == null);
-    this.target = this.range ? attributes['target_temp_' + this.edge] : attributes.temperature;
+    const key = this.range ? 'target_temp_' + this.edge : 'temperature';
+    const reported = attributes[key];
+    if (this.requested && (this.requested.key !== key || this.requested.entity !== this.entityId ||
+        this.requested.mode !== state?.state || this.requested.previous !== reported)) this.clearRequested();
+    this.target = this.requested?.value ?? reported;
     const available = Boolean(state && !['unknown','unavailable'].includes(state.state));
     this.adjustable = available && !this.pending && (this.range || supports(feature.target))
       && Number.isFinite(this.target) && this.max > this.min;
@@ -253,7 +257,7 @@ export class ThermostatControls {
     this.options('climate-range',this.range ? [['low','Heat to'],['high','Cool to']] : [],this.edge,!available,
       edge=>{this.edge=edge;this.update();});
     const presets = this.adjustable && !this.range
-      ? this.presets().map(([label,celsius])=>[label,this.snap(fahrenheit ? celsius*1.8+32 : celsius)])
+      ? this.presets().map(([label,celsius])=>[label,Math.max(this.min,Math.min(this.max,Number((fahrenheit ? celsius*1.8+32 : celsius).toFixed(2))))])
       : [];
     this.options('climate-presets',presets.map(([label,value])=>[String(value),`${label} ${format(value)}`]),null,false,
       value=>this.setTarget(Number(value)));
@@ -342,7 +346,7 @@ export class ThermostatControls {
 
   snap(value) {
     const bounded = Math.min(this.max,Math.max(this.min,value));
-    return Number(Math.min(this.max,this.min + Math.round((bounded-this.min)/this.step)*this.step).toFixed(3));
+    return Number(Math.max(this.min,Math.min(this.max,Math.round(bounded/this.step)*this.step)).toFixed(3));
   }
 
   readPointer(event) {
@@ -363,7 +367,16 @@ export class ThermostatControls {
       target_temp_low:this.edge === 'low' ? Math.min(value,high) : low,
       target_temp_high:this.edge === 'high' ? Math.max(value,low) : high,
     };
+    const key = this.range ? 'target_temp_' + this.edge : 'temperature';
+    this.clearRequested();
+    this.requested = {key, value:fields[key], previous:this.attributes[key], entity:this.entityId, mode:this.dialog.dataset.mode};
+    this.requestTimer = setTimeout(() => { this.clearRequested(); this.update(); }, 10000);
     this.send('set_temperature',fields);
+  }
+
+  clearRequested() {
+    clearTimeout(this.requestTimer);
+    this.requested = null;
   }
 
   async send(service, fields) {
@@ -374,6 +387,7 @@ export class ThermostatControls {
     try {
       await this.card._hass.callService('climate',service,{entity_id:this.entityId,...fields});
     } catch {
+      if (service === 'set_temperature') this.clearRequested();
       this.message = 'Home Assistant could not apply the change.';
     } finally {
       this.pending = false;
