@@ -2,6 +2,12 @@
 
 Atmosphere bundles a weather dashboard, worldwide Open-Meteo forecasts, recent precipitation radar, and native Home Assistant entities. Each saved location updates independently, even with all dashboards closed.
 
+## Watch the dashboard demo
+
+[![Atmosphere Weather dashboard demo showing the animated sky, forecast, and radar](docs/atmosphere-weather-preview.jpg)](https://github.com/yanke7/Home-Assistant-weather/releases/download/v0.1.34/atmosphere-weather-demo.mp4)
+
+[Watch or download the 25-second demo (MP4)](https://github.com/yanke7/Home-Assistant-weather/releases/download/v0.1.34/atmosphere-weather-demo.mp4). See the dashboard, radar, city cameras, themes, and language settings, plus an example of using weather entities in an automation.
+
 [![Install Atmosphere Weather with My Home Assistant](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=yanke7&repository=Home-Assistant-weather&category=integration)
 
 ## Install
