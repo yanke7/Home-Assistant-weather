@@ -169,6 +169,19 @@ class AtmosphereWeatherCard extends HTMLElement {
     window.addEventListener('resize', this.fitViewport);
     window.visualViewport?.addEventListener('resize', this.fitViewport);
     this.viewportFrame = requestAnimationFrame(this.fitViewport);
+    this.radarLayoutObserver = new ResizeObserver(() => {
+      const mobile = this.$('shell').clientWidth <= 700;
+      const target = this.$(mobile ? 'mobile-radar-slot' : 'desktop-radar-slot');
+      const radar = this.$('radar');
+      if (radar.parentElement === target) return;
+      target.append(radar);
+      if (!mobile && this.tab === 'radar') {
+        this.tab = 'hourly';
+        this.render();
+      }
+      this.loadRadar();
+    });
+    this.radarLayoutObserver.observe(this.$('shell'));
     this.startSky();
     this.refresh();
     this.timer = setInterval(() => this.refresh(), 60000);
@@ -176,6 +189,7 @@ class AtmosphereWeatherCard extends HTMLElement {
   disconnectedCallback() {
     clearInterval(this.timer);
     cancelAnimationFrame(this.viewportFrame);
+    this.radarLayoutObserver?.disconnect();
     window.removeEventListener('resize', this.fitViewport);
     window.visualViewport?.removeEventListener('resize', this.fitViewport);
     this.request++;
@@ -242,8 +256,8 @@ class AtmosphereWeatherCard extends HTMLElement {
         <section class="panel forecast"><div class="heading"><h2 id="forecast-title">Forecast</h2>
           <div class="tabs"><button data-tab="hourly">Hourly</button><button data-tab="daily">Daily</button>
           <button data-tab="radar" class="mobile-tab">Radar</button></div></div>
-          <div id="periods"></div></section>
-        <section class="panel radar"><div class="heading"><h2>Precipitation radar</h2></div><div id="radar"></div></section>
+          <div id="periods"></div><div id="mobile-radar-slot"></div></section>
+        <section class="panel radar"><div class="heading"><h2>Precipitation radar</h2></div><div id="desktop-radar-slot"><div id="radar"></div></div></section>
       </div>
       <footer><a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather by Open-Meteo</a><span id="status" role="status"></span></footer>
       <dialog id="dialog" aria-labelledby="settings-title">
@@ -348,7 +362,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     } else if (this.theme !== 'trek') {
       brand.querySelector('img')?.remove();
     }
-    this.$('forecast-title').textContent = this.theme === 'trek'
+    this.$('forecast-title').textContent = this.tab === 'radar' ? 'Precipitation radar' : this.theme === 'trek'
       ? (this.tab === 'daily' ? 'Daily forecast' : 'Hourly forecast') : 'Forecast';
     shell.dataset.tab = this.tab;
     shell.style.setProperty('--bg',background);
@@ -630,8 +644,7 @@ main[data-theme=neon] .panel{box-shadow:inset 0 0 24px #28deef14}
  main{min-height:510px;padding:8px 12px;gap:8px;grid-template-rows:38px minmax(112px,.8fr) 64px minmax(170px,1fr) auto}
  .brand{font-size:17px}.hero{padding:12px 15px}.metrics{gap:5px}.metrics>div{padding:7px 5px}.metrics span{font-size:.66em}
  .metrics strong{font-size:.9em}.outlook{display:block;position:relative;height:100%}.forecast{height:100%}.radar{display:none}
- .mobile-tab{display:block}main[data-tab=radar] .radar{display:flex;position:absolute;inset:47px 7px 7px;padding:3px 5px;border:0}
- main[data-tab=radar] .radar .heading{display:none}main[data-tab=radar] #periods{visibility:hidden}
+ .mobile-tab{display:block}
  .period strong{font-size:1.15em}.period span,.period small{font-size:.66em}.period .icon{font-size:1.35em}.tabs button{padding:7px 8px}
 }
 .trek-settings,#trek-time{display:none}
@@ -699,7 +712,6 @@ main[data-theme=trek] .period small{background:#352716;color:var(--gold);width:1
  main[data-theme=trek] .tabs button{padding:6px;font-size:.72em}
  main[data-theme=trek] .heading{gap:4px}
  main[data-theme=trek] .summary strong{border-width:2px;padding:3px 4px}
- main[data-theme=trek][data-tab=radar] .radar{inset:45px 4px 4px}
 }
 
 .trek-feels{display:none}
@@ -843,11 +855,21 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
  .forecast .tabs button{min-height:40px;padding:6px 9px;font-size:12px}
  .period{gap:3px}
  .period .icon i{font-size:clamp(24px,8cqw,44px)}
- main[data-tab=radar] .radar,main[data-theme=trek][data-tab=radar] .radar{top:55px}
 }
 @container(max-width:360px){
  .forecast .tabs button{padding-inline:7px}
  main[data-theme=trek] .forecast h2{font-size:13px}
+}
+
+#desktop-radar-slot,#mobile-radar-slot{flex:1;min-height:0;display:flex;flex-direction:column}
+#mobile-radar-slot{display:none}
+@container(max-width:700px){
+ .forecast .heading{flex-direction:column;align-items:stretch;gap:6px}
+ .forecast .tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ .forecast .tabs button{width:100%;min-height:42px;font-size:15px;padding:6px 8px}
+ main[data-tab=radar] #periods{display:none}
+ main[data-tab=radar] #mobile-radar-slot{display:flex}
+ main[data-tab=radar]{grid-template-rows:auto minmax(104px,.3fr) 63px minmax(194px,1fr) auto}
 }
 
 `;
