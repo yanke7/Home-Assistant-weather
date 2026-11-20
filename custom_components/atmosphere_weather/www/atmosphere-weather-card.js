@@ -1,4 +1,4 @@
-import {languages,translate} from './translations.js?v=0.1.33';
+import {languages,translate} from './translations.js?v=0.1.34';
 
 const themes = [
   ['original','Original','#101923','#17232e','#eac68b'],
@@ -158,16 +158,31 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.selection = this.read('location') || config.location;
     this.theme = themes.find(item => item[0] === this.read('theme'))?.[0] || 'original';
     const language = this.read('language');
-    this.language = Object.hasOwn(languages,language) ? language : 'en';
+    this.languagePreference = Object.hasOwn(languages,language) ? language : 'auto';
     this.imperial = this.read('units') === 'imperial';
   }
   read(key) { try { return localStorage.getItem(this.key + '.' + key); } catch { return null; } }
   write(key,value) { try { localStorage.setItem(this.key + '.' + key,value); } catch { /* Optional preference. */ } }
   getCardSize() { return 9; }
+  get language() {
+    if (Object.hasOwn(languages,this.languagePreference)) return this.languagePreference;
+    const locale = this._hass?.locale?.language || this._hass?.language || '';
+    const base = locale.toLowerCase().split(/[-_]/)[0];
+    const language = base === 'fil' ? 'tl' : base === 'no' ? 'nb' : base;
+    return Object.hasOwn(languages,language) ? language : 'en';
+  }
   set hass(value) {
+    const previousLanguage = this.language;
     const changed = this._hass?.user?.id !== value.user?.id;
     this._hass = value;
     if (changed) this.refresh();
+    if (this.$('shell') && previousLanguage !== this.language) {
+      if (this.$('dialog').open) {
+        this.renderAppearanceSettings();
+        this.renderLocationSettings();
+      }
+      this.render();
+    }
     if (this.$('camera-preview')) this.renderLocationControls();
   }
   connectedCallback() {
@@ -335,7 +350,7 @@ class AtmosphereWeatherCard extends HTMLElement {
        <div class="heading"><h2 id="settings-title" data-label="Settings">Settings</h2><button id="close" aria-label="Close settings">✕</button></div>
        <div id="settings-content">
         <label class="units"><span data-label="Language">Language</span>
-          <select id="language">${Object.entries(languages).map(([code,name]) => `<option value="${code}">${name}</option>`).join('')}</select>
+          <select id="language"><option value="auto" data-label="Follow Home Assistant">Follow Home Assistant</option>${Object.entries(languages).map(([code,name]) => `<option value="${code}">${name}</option>`).join('')}</select>
         </label>
         <section><h3 data-label="Locations">Locations</h3><div id="location-settings"></div><p id="notice" role="status"></p></section>
         <section><h3 data-label="Appearance">Appearance</h3><div id="appearance-settings"></div></section>
@@ -353,8 +368,8 @@ class AtmosphereWeatherCard extends HTMLElement {
         <div id="reading-choices"></div><button id="reading-reset" data-label="Show all readings">Show all readings</button>
       </dialog></main>`;
     this.$('language').onchange = event => {
-      this.language = event.target.value;
-      this.write('language',this.language);
+      this.languagePreference = event.target.value;
+      this.write('language',this.languagePreference);
       this.renderAppearanceSettings();
       this.renderLocationSettings();
       this.render();
@@ -488,9 +503,9 @@ class AtmosphereWeatherCard extends HTMLElement {
     const current = weather?.current || {};
     const [, , background, surface, accent] = themes.find(item => item[0] === this.theme) || themes[0];
     shell.dataset.theme = this.theme;
+    this.$('language').value = this.languagePreference;
     if (shell.lang !== this.language) {
       shell.lang = this.language;
-      this.$('language').value = this.language;
       for (const label of shell.querySelectorAll('[data-label]')) label.textContent = this.t(label.dataset.label);
       this.$('settings').setAttribute('aria-label',this.t('Settings'));
       this.$('settings').title = this.t('Settings');

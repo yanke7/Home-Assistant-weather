@@ -2,6 +2,7 @@ export const languages = {"en": "English", "fr": "Français", "es": "Español", 
 
 // Each row follows the language order above, excluding English (the message key).
 const messages = {
+  "Follow Home Assistant":["Suivre Home Assistant", "Usar el idioma de Home Assistant", "Home-Assistant-Sprache übernehmen", "Sundin ang wika ng Home Assistant", "Home Assistant की भाषा का उपयोग करें", "Home Assistant-taal volgen", "Följ Home Assistants språk", "Segui la lingua di Home Assistant", "Użyj języka Home Assistant", "Følg Home Assistants sprog", "Følg språket i Home Assistant"],
   "Language":["Langue", "Idioma", "Sprache", "Wika", "भाषा", "Taal", "Språk", "Lingua", "Język", "Sprog", "Språk"],
   "Settings":["Paramètres", "Ajustes", "Einstellungen", "Mga setting", "सेटिंग्स", "Instellingen", "Inställningar", "Impostazioni", "Ustawienia", "Indstillinger", "Innstillinger"],
   "Locations":["Lieux", "Ubicaciones", "Standorte", "Mga lokasyon", "स्थान", "Locaties", "Platser", "Località", "Lokalizacje", "Steder", "Steder"],
