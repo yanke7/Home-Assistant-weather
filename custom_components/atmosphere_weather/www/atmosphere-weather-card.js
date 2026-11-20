@@ -1,4 +1,4 @@
-import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.36';
+import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.37';
 import {languages,translate} from './translations.js?v=0.1.34';
 
 const themes = [
@@ -1284,14 +1284,14 @@ main[data-theme=trek]::before{
  content:"";position:absolute;inset:16px auto 30px 8px;width:var(--rail);border-radius:44px 0 0 44px;
  background:linear-gradient(var(--gold) 0 18%,#050505 18% 18.6%,var(--blue) 18.6% 30%,#050505 30% 30.6%,var(--orange) 30.6% 68%,#050505 68% 68.6%,var(--blue) 68.6% 80%,#050505 80% 80.6%,#dd8a24 80.6%);
 }
-main[data-theme=trek] header{
+main[data-theme=trek]>header{
  border-bottom:10px solid transparent;border-radius:0 38px 0 24px;padding:0 18px 4px 10px;
  background:linear-gradient(#050505,#050505) padding-box,linear-gradient(90deg,var(--gold) 0 42%,#050505 42% 43%,var(--orange) 43% 55%,#050505 55% 56%,var(--blue) 56% 82%,#050505 82% 83%,var(--gold) 83%) border-box;
 }
 main[data-theme=trek] .brand{min-width:0;gap:12px;font-size:clamp(22px,4cqw,66px);text-transform:uppercase;line-height:1}
 main[data-theme=trek] .brand>span,main[data-theme=trek] .gear{display:none}
 main[data-theme=trek] .brand img{width:clamp(42px,7cqh,82px);aspect-ratio:1;object-fit:contain;border-radius:50%;flex:none}
-main[data-theme=trek] header>.actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;justify-items:end}
+main[data-theme=trek]>header>.actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;justify-items:end}
 main[data-theme=trek] :is(#settings,.tabs button){border:0;border-radius:999px;background:var(--violet);color:#080612;font-weight:800}
 main[data-theme=trek] .tabs button[aria-pressed=true]{background:var(--orange);outline:none}
 main[data-theme=trek] .trek-settings,main[data-theme=trek] #trek-time{display:block}
@@ -1326,7 +1326,7 @@ main[data-theme=trek] .period small{background:#352716;color:var(--gold);width:1
 @container(max-width:700px){
  main[data-theme=trek]{--rail:8px;padding:8px 8px 8px 21px;grid-template-rows:58px minmax(110px,.7fr) calc(66px + var(--alert-height,0px)) minmax(185px,1fr) auto}
  main[data-theme=trek]::before{inset-block:8px 24px;border-radius:8px 0 0 8px}
- main[data-theme=trek] header{border-bottom-width:6px;padding:0 2px 3px;border-radius:0 0 0 12px}
+ main[data-theme=trek]>header{border-bottom-width:6px;padding:0 2px 3px;border-radius:0 0 0 12px}
  main[data-theme=trek] .brand{gap:4px;font-size:clamp(15px,4.5cqw,24px)}
  main[data-theme=trek] .brand img{width:30px}
  main[data-theme=trek] #location{max-width:28cqw;padding:4px;font-size:.78em}
@@ -1342,7 +1342,7 @@ main[data-theme=trek] .period small{background:#352716;color:var(--gold);width:1
 
 .trek-feels{display:none}
 main[data-theme=trek]{--font:"Atmosphere Console","Arial Narrow",system-ui,sans-serif;font-weight:600;font-synthesis:none;gap:9px}
-main[data-theme=trek] header{border-bottom-width:14px;border-radius:0 36px 0 27px}
+main[data-theme=trek]>header{border-bottom-width:14px;border-radius:0 36px 0 27px}
 main[data-theme=trek] .brand{letter-spacing:.045em}
 main[data-theme=trek] .brand img{width:clamp(46px,8vh,88px)}
 main[data-theme=trek] #location{font-size:clamp(13px,2.05cqw,32px);max-width:44cqw;padding-block:2px}
@@ -1378,7 +1378,7 @@ main[data-theme=trek] .period .chance{width:100%;border-top:4px solid var(--viol
 main[data-theme=trek] .map::after{content:"";position:absolute;inset:0;pointer-events:none;
  background:repeating-radial-gradient(circle at center,transparent 0 43px,#41398366 44px 45px,transparent 46px 56px)}
 @container(max-width:700px){
- main[data-theme=trek] header{border-bottom-width:6px}
+ main[data-theme=trek]>header{border-bottom-width:6px}
  main[data-theme=trek] .brand img{width:31px}
  main[data-theme=trek] #location{max-width:27cqw;font-size:11px}
  main[data-theme=trek] #trek-time{font-size:9px}
@@ -1421,14 +1421,14 @@ main[data-theme=trek] .metrics span{font-size:clamp(10px,1.22cqw,19px);line-heig
  main[data-theme=trek] .metrics span{font-size:9px}
 }
 
-main[data-theme=trek] header{
+main[data-theme=trek]>header{
  --emblem:clamp(68px,9.2cqw,108px);
  --brand-gap:clamp(5px,.65cqw,10px);
  --header-inset:4px;
  position:relative;border-bottom:0;background:#050505;
  padding:0 14px 12px var(--header-inset);
 }
-main[data-theme=trek] header::after{
+main[data-theme=trek]>header::after{
  content:"";position:absolute;left:calc(var(--header-inset) + var(--emblem) + var(--brand-gap));
  right:0;bottom:0;height:10px;pointer-events:none;
  background:linear-gradient(90deg,var(--gold) 0 47%,#050505 47% 48%,var(--orange) 48% 63%,#050505 63% 64%,var(--blue) 64% 86%,#050505 86% 87%,var(--gold) 87%);
@@ -1441,8 +1441,8 @@ main[data-theme=trek]{
 }
 @container(max-width:700px){
  main[data-theme=trek]{grid-template-rows:61px minmax(110px,.7fr) calc(66px + var(--alert-height,0px)) minmax(185px,1fr) auto}
- main[data-theme=trek] header{--emblem:clamp(36px,10.4cqw,48px);--brand-gap:4px;--header-inset:2px;padding:0 2px 7px}
- main[data-theme=trek] header::after{height:5px}
+ main[data-theme=trek]>header{--emblem:clamp(36px,10.4cqw,48px);--brand-gap:4px;--header-inset:2px;padding:0 2px 7px}
+ main[data-theme=trek]>header::after{height:5px}
  main[data-theme=trek] .brand img{top:3px}
 }
 
@@ -1474,7 +1474,7 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
    height:var(--atmosphere-available-height,calc(100dvh - var(--header-height,56px)));
    min-height:465px;gap:6px;grid-template-rows:auto minmax(104px,.65fr) calc(63px + var(--alert-height,0px)) minmax(194px,1fr) auto;
  }
- main[data-theme=trek] header{min-height:56px}
+ main[data-theme=trek]>header{min-height:56px}
  main:not([data-theme=trek]) header{min-height:38px}
  .outlook{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:auto}
  .forecast{height:auto;gap:5px}

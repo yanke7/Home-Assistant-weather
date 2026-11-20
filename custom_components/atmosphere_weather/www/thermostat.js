@@ -1,3 +1,4 @@
+const defaultPresets = [['Eco',18.5],['Comfort',21.5],['Warm',23.5]];
 const feature = {target:1, range:2, fan:8};
 const modes = {off:'Off',heat:'Heat',cool:'Cool',heat_cool:'Heat / cool',auto:'Auto',dry:'Dry',fan_only:'Fan only'};
 const actions = {heating:'Heating',cooling:'Cooling',idle:'Idle',off:'Off',drying:'Drying',fan:'Fan running',defrosting:'Defrosting'};
@@ -16,7 +17,10 @@ const ticks = Array.from({length:37},(_,index)=>{
 export const thermostatMarkup = `
 <dialog id="thermostat-dialog" aria-labelledby="climate-title">
   <header class="climate-heading"><div><h2 id="climate-title">Thermostat</h2><div id="climate-name"></div></div>
-    <button id="climate-close" type="button" aria-label="Close thermostat">×</button></header>
+    <div class="climate-heading-actions">
+      <button id="climate-gear" type="button" aria-haspopup="dialog" aria-label="Thermostat settings" title="Thermostat settings">⚙</button>
+      <button id="climate-close" type="button" aria-label="Close thermostat">×</button>
+    </div></header>
   <div class="climate-telemetry">
     <div><small>Indoor</small><strong id="climate-indoor"></strong></div>
     <div id="climate-humidity-box"><small>Humidity</small><strong id="climate-humidity"></strong></div>
@@ -42,27 +46,39 @@ export const thermostatMarkup = `
   <section id="climate-mode-box"><h3>System mode</h3><div id="climate-modes" class="climate-options"></div></section>
   <section id="climate-fan-box"><h3>Fan speed</h3><div id="climate-fans" class="climate-options"></div></section>
   <p id="climate-message" role="status" hidden></p>
+</dialog>
+<dialog id="climate-settings" aria-labelledby="climate-settings-title">
+  <header class="climate-heading"><h2 id="climate-settings-title">Thermostat presets</h2>
+    <button id="climate-settings-close" type="button" aria-label="Close thermostat settings">×</button></header>
+  <form id="climate-preset-form">
+    <div id="climate-preset-fields"></div>
+    <div class="climate-heading-actions">
+      <button id="climate-preset-reset" type="button">Reset defaults</button>
+      <button type="submit">Save presets</button>
+    </div>
+  </form>
 </dialog>`;
 
 export const thermostatCSS = `
-#thermostat-dialog{width:min(430px,calc(100vw - 24px));padding:clamp(14px,4vw,24px);border:1px solid #ffffff25;
-  border-radius:28px;background:radial-gradient(ellipse at 50% 34%,#322524,#181b24 65%);color:#f4f5fa;
-  font:14px system-ui,sans-serif;--climate-accent:#ffab70;--surface:#252833;--line:#ffffff29;--accent:#ffab70}
-#thermostat-dialog[data-mode=cool]{--climate-accent:#7dd3fc;background:radial-gradient(ellipse at 50% 34%,#183140,#181b24 65%)}
-#thermostat-dialog[data-mode=heat_cool],#thermostat-dialog[data-mode=auto]{--climate-accent:#91e6bd}
-#thermostat-dialog[data-mode=off]{--climate-accent:#aeb8c8}
+#thermostat-dialog,#climate-settings{
+  width:min(430px,calc(100vw - 24px));padding:clamp(14px,4vw,24px);border:1px solid var(--line);
+  border-radius:28px;background:var(--bg);color:var(--ink);font:14px system-ui,sans-serif;
+  --climate-accent:var(--accent);--climate-well:color-mix(in srgb,var(--bg),#000 26%);
+}
+#thermostat-dialog{background:radial-gradient(ellipse at 50% 34%,color-mix(in srgb,var(--bg),var(--climate-accent) 15%),var(--bg) 65%)}
 #thermostat-dialog [hidden]{display:none}
 .climate-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.climate-heading h2{margin:0;color:#f4f5fa;font-size:22px}.climate-heading #climate-name{color:#c1cadb;margin-top:4px;overflow-wrap:anywhere}
-#climate-close{width:44px;height:44px;flex:none;font-size:27px;padding:0}
+.climate-heading h2{margin:0;color:var(--ink);font-size:22px}.climate-heading #climate-name{color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.climate-heading-actions{display:flex;gap:6px;align-items:center}
+#climate-gear,#climate-settings-close,#climate-close{width:44px;height:44px;flex:none;font-size:27px;padding:0}
 .climate-telemetry,.climate-options,.climate-stepper{display:flex;gap:8px;flex-wrap:wrap}
 .climate-telemetry>div{flex:1;background:#ffffff08;border:1px solid #ffffff16;border-radius:12px;padding:8px 12px}
-.climate-telemetry small,#thermostat-dialog h3{display:block;color:#c1cadb;font-size:12px}
+.climate-telemetry small,#thermostat-dialog h3{display:block;color:var(--muted);font-size:12px}
 .climate-telemetry strong{display:block;font-size:17px;margin-top:2px}
 .climate-dial{position:relative;width:min(100%,260px);margin:0 auto;aspect-ratio:1}
 #climate-track{display:block;width:100%;height:100%;touch-action:none;cursor:grab;border-radius:50%}
 #climate-track[aria-disabled=true]{cursor:default;touch-action:auto}
-.climate-well{fill:#12161f;stroke:#ffffff12;stroke-width:2}
+.climate-well{fill:var(--climate-well);stroke:#ffffff12;stroke-width:2}
 .climate-ticks{fill:none;stroke:#aab8c379;stroke-width:1.5;stroke-linecap:round}
 .climate-base,.climate-progress{fill:none;stroke-width:12;stroke-linecap:round}
 .climate-base{stroke:#ffffff1c}.climate-progress{stroke:var(--climate-accent)}
@@ -75,7 +91,50 @@ export const thermostatCSS = `
 #climate-presets button{border-radius:999px;font-size:12px}
 #thermostat-dialog h3{margin:12px 0 6px}
 #thermostat-dialog button[aria-pressed=true]{color:var(--climate-accent);border-color:var(--climate-accent);outline:0}
-#climate-message{margin:12px 0 0;color:#ffc0b2}
+#climate-message{margin:12px 0 0;color:var(--ink)}
+#climate-preset-fields{display:grid;gap:10px;margin-bottom:16px}
+#climate-preset-fields fieldset{margin:0;border:1px solid var(--line);border-radius:12px;display:grid;grid-template-columns:1fr minmax(92px,.5fr);gap:8px}
+#climate-preset-fields input{width:100%}
+#climate-preset-form .climate-heading-actions{justify-content:space-between;flex-wrap:wrap}
+#climate-preset-form button{min-height:44px}
+
+main[data-theme=trek] :is(#thermostat-dialog,#climate-settings){
+  --climate-gold:#ffcc66;--climate-peach:#ff9b55;--climate-lavender:#a798e6;--climate-blue:#afc3fc;
+  --climate-accent:var(--climate-gold);--ink:var(--climate-gold);--muted:var(--climate-blue);
+  --line:#ffcc6666;--surface:#18110e;--climate-well:#050505;
+  border:0;border-radius:24px 14px 14px 24px;background:#050505;
+  font:600 15px "Atmosphere Console",system-ui,sans-serif;
+}
+main[data-theme=trek] #thermostat-dialog{
+  padding-left:clamp(32px,10vw,52px);
+  background:linear-gradient(var(--climate-gold) 0 13%,#050505 13% 14%,var(--climate-peach) 14% 31%,#050505 31% 32%,var(--climate-lavender) 32% 84%,#050505 84% 85%,var(--climate-blue) 85%) left/24px 100% no-repeat,#050505;
+}
+main[data-theme=trek] #thermostat-dialog .climate-heading{
+  padding-bottom:12px;
+  background:linear-gradient(90deg,var(--climate-gold) 0 60%,#050505 60% 62%,var(--climate-peach) 62% 85%,#050505 85% 87%,var(--climate-lavender) 87%) bottom/100% 7px no-repeat;
+}
+main[data-theme=trek] .climate-heading h2{font-size:clamp(17px,5vw,25px);text-transform:uppercase}
+main[data-theme=trek] .climate-telemetry>div{padding:0;border:0;border-left:4px solid var(--climate-gold);border-radius:10px 10px 0 0;background:transparent}
+main[data-theme=trek] .climate-telemetry small{padding:3px 8px;background:var(--climate-gold);color:#050505;text-transform:uppercase}
+main[data-theme=trek] .climate-telemetry strong{padding:3px 8px;font-size:22px}
+main[data-theme=trek] #climate-humidity-box{border-color:var(--climate-peach);color:var(--climate-peach)}
+main[data-theme=trek] #climate-humidity-box small{background:var(--climate-peach)}
+main[data-theme=trek] .climate-dial{width:min(100%,232px)}
+main[data-theme=trek] :is(.climate-base,.climate-progress){stroke-width:17;stroke-dasharray:11 4;stroke-linecap:butt}
+main[data-theme=trek] .climate-base{stroke:var(--climate-lavender);opacity:.45}
+main[data-theme=trek] .climate-well{stroke:none}
+main[data-theme=trek] .climate-ticks{display:none}
+main[data-theme=trek] .climate-readout{gap:3px}
+main[data-theme=trek] #climate-activity{color:#050505;background:var(--climate-blue);font-size:12px;text-transform:uppercase}
+main[data-theme=trek] #climate-value{font-weight:600}
+main[data-theme=trek] :is(#climate-gear,#climate-close,#climate-settings-close,#climate-down,#climate-up){background:var(--climate-lavender);color:#050505;border:0;border-radius:999px}
+main[data-theme=trek] :is(#climate-down,#climate-up){min-width:56px;min-height:40px}
+main[data-theme=trek] #climate-down{background:var(--climate-blue)}
+main[data-theme=trek] #climate-up{background:var(--climate-peach)}
+main[data-theme=trek] #climate-presets button{background:var(--climate-gold);color:#050505;border:0}
+main[data-theme=trek] #climate-modes select,main[data-theme=trek] #climate-fans select{width:100%;min-height:42px;border-radius:999px;background:var(--climate-peach);color:#050505}
+main[data-theme=trek] #climate-fans select{background:var(--climate-gold)}
+
 `;
 
 export class ThermostatControls {
@@ -83,8 +142,32 @@ export class ThermostatControls {
     this.card = card;
     this.dialog = card.$('thermostat-dialog');
     this.track = card.$('climate-track');
+    this.settings = card.$('climate-settings');
+    card.$('climate-gear').onclick = () => {
+      this.renderPresetFields(this.presets());
+      this.settings.showModal();
+    };
+    card.$('climate-settings-close').onclick = () => this.settings.close();
+    card.$('climate-preset-reset').onclick = () => this.renderPresetFields(defaultPresets);
+    card.$('climate-preset-form').onsubmit = event => {
+      event.preventDefault();
+      const values = new FormData(event.currentTarget);
+      const presets = defaultPresets.map((_,index)=>[
+        values.get('name'+index).trim(),
+        this.fahrenheit ? (Number(values.get('temp'+index))-32)/1.8 : Number(values.get('temp'+index)),
+      ]);
+      if (presets.some(([name])=>!name)) {
+        const empty = event.currentTarget.elements['name'+presets.findIndex(([name])=>!name)];
+        empty.value = '';
+        empty.reportValidity();
+        return;
+      }
+      card.write('thermostatPresets',JSON.stringify(presets));
+      this.settings.close();
+      this.update();
+    };
     card.$('climate-close').onclick = () => this.dialog.close();
-    this.dialog.addEventListener('close', () => { this.draft = null; this.pointer = null; });
+    this.dialog.addEventListener('close', () => { this.draft = null; this.pointer = null; this.settings.close(); });
     card.$('climate-down').onclick = () => this.adjust(-1);
     card.$('climate-up').onclick = () => this.adjust(1);
     this.track.onkeydown = event => {
@@ -137,7 +220,10 @@ export class ThermostatControls {
     const attributes = state?.attributes || {};
     this.attributes = attributes;
     const unit = card._hass?.config?.unit_system?.temperature || '°C';
-    const fahrenheit = unit === '°F';
+    const fahrenheit = this.fahrenheit = unit === '°F';
+    this.unit = unit;
+    this.trek = card.theme === 'trek';
+    card.$('climate-title').textContent = this.trek ? 'Climate control' : 'Thermostat';
     this.step = attributes.target_temp_step > 0 ? attributes.target_temp_step : fahrenheit ? 1 : .5;
     this.min = Number.isFinite(attributes.min_temp) ? attributes.min_temp : fahrenheit ? 45 : 7;
     this.max = Number.isFinite(attributes.max_temp) ? attributes.max_temp : fahrenheit ? 95 : 35;
@@ -167,7 +253,7 @@ export class ThermostatControls {
     this.options('climate-range',this.range ? [['low','Heat to'],['high','Cool to']] : [],this.edge,!available,
       edge=>{this.edge=edge;this.update();});
     const presets = this.adjustable && !this.range
-      ? [['Eco',18.5],['Comfort',21.5],['Warm',23.5]].map(([label,celsius])=>[label,this.snap(fahrenheit ? celsius*1.8+32 : celsius)])
+      ? this.presets().map(([label,celsius])=>[label,this.snap(fahrenheit ? celsius*1.8+32 : celsius)])
       : [];
     this.options('climate-presets',presets.map(([label,value])=>[String(value),`${label} ${format(value)}`]),null,false,
       value=>this.setTarget(Number(value)));
@@ -184,12 +270,49 @@ export class ThermostatControls {
     message.textContent = this.message;
   }
 
+  presets() {
+    try {
+      const saved = JSON.parse(this.card.read('thermostatPresets'));
+      if (Array.isArray(saved) && saved.length === 3 && saved.every(item=>
+        Array.isArray(item) && typeof item[0] === 'string' && item[0].trim() && Number.isFinite(item[1]))) return saved;
+    } catch { /* Use the standard presets if stored preferences are unreadable. */ }
+    return defaultPresets;
+  }
+
+  renderPresetFields(presets) {
+    const fields = this.card.$('climate-preset-fields');
+    fields.replaceChildren(...presets.map(([name,celsius],index)=>{
+      const group = document.createElement('fieldset');
+      group.innerHTML = `<legend>Preset ${index+1}</legend><label>Name <input name="name${index}" maxlength="24" required></label>
+        <label>Setpoint <span></span><input name="temp${index}" type="number" step="any" required></label>`;
+      const [label,temp] = group.querySelectorAll('input');
+      group.querySelector('span').textContent = '(' + this.unit + ')';
+      label.value = name;
+      temp.min = this.min;
+      temp.max = this.max;
+      const value = this.fahrenheit ? celsius * 1.8 + 32 : celsius;
+      temp.value = Math.min(this.max,Math.max(this.min,Number(value.toFixed(2))));
+      return group;
+    }));
+  }
+
   options(id, items, active, disabled, select) {
     const host = this.card.$(id);
-    const signature = JSON.stringify([items,active,Boolean(disabled)]);
+    const compact = this.trek && (id === 'climate-modes' || id === 'climate-fans');
+    const signature = JSON.stringify([items,active,Boolean(disabled),compact]);
     if (host.dataset.options === signature) return;
     host.dataset.options = signature;
     host.hidden = !items.length;
+    if (compact && items.length) {
+      const control = document.createElement('select');
+      control.setAttribute('aria-label',id === 'climate-modes' ? 'System mode' : 'Fan speed');
+      control.disabled = Boolean(disabled);
+      if (!items.some(([value])=>value === active)) control.add(new Option('Choose…','',true,true));
+      for (const [value,label] of items) control.add(new Option(label,value,false,value === active));
+      control.onchange = () => { if (control.value) select(control.value); };
+      host.replaceChildren(control);
+      return;
+    }
     host.replaceChildren(...items.map(([value,label])=>{
       const button = document.createElement('button');
       button.type = 'button';
