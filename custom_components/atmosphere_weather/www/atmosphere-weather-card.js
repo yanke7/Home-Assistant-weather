@@ -180,12 +180,16 @@ class AtmosphereWeatherCard extends HTMLElement {
       const mobile = this.$('shell').clientWidth <= 700;
       const target = this.$(mobile ? 'mobile-radar-slot' : 'desktop-radar-slot');
       const radar = this.$('radar');
-      if (radar.parentElement === target) return;
+      if (radar.parentElement === target) {
+        if (radar.clientWidth) this.renderRadar();
+        return;
+      }
       target.append(radar);
       if (!mobile && this.tab === 'radar') {
         this.tab = 'hourly';
         this.render();
       }
+      this.renderRadar();
       this.loadRadar();
     });
     this.radarLayoutObserver.observe(this.$('shell'));
@@ -709,29 +713,37 @@ class AtmosphereWeatherCard extends HTMLElement {
       return;
     }
     const zoom = this.radarZoom ?? 6;
-    const signature = `${location.id}:${frame.time}:${this.frames.length}:${zoom}`;
+    const signature = `${location.id}:${frame.time}:${this.frames.length}:${zoom}:${host.clientWidth}:${host.clientHeight}`;
     if (host.firstElementChild?.dataset.signature === signature) {
       this.drawWindRose();
       return;
     }
-    const size = 2 ** zoom;
     const latitude = Math.max(-85,Math.min(85,location.latitude)) * Math.PI / 180;
-    const x = (location.longitude + 180) / 360 * size;
-    const y = (1 - Math.asinh(Math.tan(latitude)) / Math.PI) / 2 * size;
-    const tiles = [];
-    for (let column = Math.floor(x)-1; column <= Math.floor(x)+1; column++) {
-      for (let row = Math.max(0,Math.floor(y)-1); row <= Math.min(size-1,Math.floor(y)+1); row++) {
-        const wrapped = (column + size) % size;
-        const style = `left:calc(50% + ${Math.round((column-x)*256)}px);top:calc(50% + ${Math.round((row-y)*256)}px)`;
-        const base = `/api/map_tiles/raster/${zoom}/${wrapped}/${row}.png?token=${encodeURIComponent(this.mapTileToken || '')}`;
-        const url = `https://tilecache.rainviewer.com${frame.path}/256/${zoom}/${wrapped}/${row}/2/1_1.png`;
-        const background = this.mapTileToken ? `<img class="base-tile" alt="" src="${base}" style="${style}">` : '';
-        tiles.push(`${background}<img class="overlay" referrerpolicy="no-referrer" alt="" src="${escape(url)}" style="${style}">`);
+    const layers = [];
+    const addTiles = (sourceZoom,overlay) => {
+      const size = 2 ** sourceZoom;
+      // At closer views, scale the existing radar tiles in their native map projection.
+      const tileSize = 256 * 2 ** (zoom-sourceZoom);
+      const x = (location.longitude + 180) / 360 * size;
+      const y = (1 - Math.asinh(Math.tan(latitude)) / Math.PI) / 2 * size;
+      const halfWidth = (host.clientWidth || 512)/(2*tileSize);
+      const halfHeight = (host.clientHeight || 384)/(2*tileSize);
+      for (let column = Math.floor(x-halfWidth); column <= Math.floor(x+halfWidth); column++) {
+        for (let row = Math.max(0,Math.floor(y-halfHeight)); row <= Math.min(size-1,Math.floor(y+halfHeight)); row++) {
+          const wrapped = (column % size + size) % size;
+          const style = `left:calc(50% + ${Math.round((column-x)*tileSize)}px);top:calc(50% + ${Math.round((row-y)*tileSize)}px);width:${tileSize}px;height:${tileSize}px`;
+          const url = overlay
+            ? `https://tilecache.rainviewer.com${frame.path}/256/${sourceZoom}/${wrapped}/${row}/2/1_1.png`
+            : `/api/map_tiles/raster/${sourceZoom}/${wrapped}/${row}.png?token=${encodeURIComponent(this.mapTileToken)}`;
+          layers.push(`<img class="${overlay ? 'overlay' : 'base-tile'}" referrerpolicy="no-referrer" alt="" src="${escape(url)}" style="${style}">`);
+        }
       }
-    }
+    };
+    if (this.mapTileToken) addTiles(zoom,false);
+    addTiles(Math.min(zoom,7),true);
     host.innerHTML = `<div class="radar-content" data-signature="${signature}">
       <div class="radar-map-area">
-        <div class="map" role="img" aria-label="Recent observed precipitation near ${escape(location.name)}">${tiles.join('')}<span class="pin"></span></div>
+        <div class="map" role="img" aria-label="Recent observed precipitation near ${escape(location.name)}">${layers.join('')}<span class="pin"></span></div>
         <aside class="wind-rose" hidden><strong>Wind · next 24 hours</strong>
           <canvas width="176" height="176" role="img" aria-label="Forecast wind rose"></canvas>
           <small class="wind-rose-key"></small>
@@ -739,13 +751,13 @@ class AtmosphereWeatherCard extends HTMLElement {
         <div class="radar-tools" role="group" aria-label="Radar map controls">
           <button type="button" id="wind-rose-toggle" aria-pressed="false">Wind rose</button>
           <button type="button" id="radar-out" aria-label="Zoom out radar" ${zoom <= 3 ? 'disabled' : ''}>−</button>
-          <button type="button" id="radar-in" aria-label="Zoom in radar" ${zoom >= 7 ? 'disabled' : ''}>+</button>
+          <button type="button" id="radar-in" aria-label="Zoom in radar" ${zoom >= 10 ? 'disabled' : ''}>+</button>
         </div>
       </div>
       <div class="radar-controls"><input type="range" id="radar-time" min="0" max="${this.frames.length - 1}" value="${this.frameIndex}" aria-label="Observed radar time">
       <span>${this.time(frame.time * 1000)}</span></div>
       <small><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ·
-      <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> <span class="radar-tile-status" role="status"></span></small></div>`;
+      <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>${zoom > 7 ? ' · Radar enlarged' : ''} <span class="radar-tile-status" role="status"></span></small></div>`;
     const status = host.querySelector('.radar-tile-status');
     const failures = new Set(this.mapTileToken ? [] : ['Base map unavailable']);
     const updateStatus = () => { status.textContent = [...failures].join(' · '); };
@@ -760,7 +772,7 @@ class AtmosphereWeatherCard extends HTMLElement {
       if (tile.complete && !tile.naturalWidth) handleFailure();
     });
     const zoomRadar = (change,id) => {
-      this.radarZoom = Math.min(7,Math.max(3,zoom + change));
+      this.radarZoom = Math.min(10,Math.max(3,zoom + change));
       this.renderRadar();
       const control = this.$(id);
       (control.disabled ? this.$(change > 0 ? 'radar-out' : 'radar-in') : control).focus({preventScroll:true});
@@ -1340,13 +1352,13 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 .radar-tools button[aria-pressed=true]{background:#d9ecfb;color:#132333}
 .radar-tools button:disabled{opacity:.55}
 .wind-rose{position:absolute;bottom:6px;left:6px;display:grid;justify-items:center;
- width:min(136px,48%);padding:4px;color:#eef5fa;background:#0b1727ee;border-radius:8px;font:600 10px/1.15 system-ui}
+ width:min(174px,52%);padding:5px;color:#eef5fa;background:#0b1727ee;border-radius:8px;font:600 10px/1.15 system-ui}
 .wind-rose[hidden],.wind-rose canvas[hidden]{display:none}
-.wind-rose canvas{display:block;width:min(100%,104px,15vh);height:auto}
+.wind-rose canvas{display:block;width:min(100%,138px,19vh);height:auto}
 .wind-rose-key{display:flex;justify-content:center;flex-wrap:wrap;gap:3px;color:#eef5fa!important;font-size:8px!important}
 .wind-rose-key span{white-space:nowrap}
 .wind-rose-key i{display:inline-block;width:6px;height:6px;margin-right:2px}
-@container(max-width:700px){.radar-tools button{min-width:40px;min-height:40px}.wind-rose canvas{width:min(100%,96px,13vh)}}
+@container(max-width:700px){.radar-tools button{min-width:40px;min-height:40px}.wind-rose canvas{width:min(100%,122px,16vh)}}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
