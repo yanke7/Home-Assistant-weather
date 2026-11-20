@@ -9,6 +9,7 @@ const themes = [
   ['appearance','Follow Appearance','var(--yanke-bg,var(--primary-background-color,#111827))',
     'var(--yanke-surface,var(--ha-card-background,#1f2937))','var(--yanke-accent,var(--primary-color,#80c7ff))'],
 ];
+const trekLogo = new URL('./trek-logo.jpg?v=0.1.3', import.meta.url).href;
 const icons = {sunny:'☀','clear-night':'☾',partlycloudy:'⛅',cloudy:'☁',rainy:'☂',pouring:'☂',
   snowy:'❄','snowy-rainy':'❄',fog:'≋','lightning-rainy':'ϟ'};
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char =>
@@ -105,11 +106,11 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.shadowRoot.innerHTML = `<style>${CSS}</style><main id="shell">
       <header><div class="brand"><span aria-hidden="true">◒</span><strong>Atmosphere</strong></div>
         <div class="actions"><select id="location" aria-label="Weather location"></select>
-          <button id="settings" aria-label="Settings" title="Settings">⚙</button></div></header>
+          <button id="settings" aria-label="Settings" title="Settings"><span class="gear">⚙</span><span class="trek-settings">Settings</span></button><div id="trek-time"></div></div></header>
       <section id="hero" class="hero"><div id="sky-content"></div></section>
       <section class="metrics" id="metrics" aria-label="Weather details"></section>
       <div class="outlook">
-        <section class="panel forecast"><div class="heading"><h2>Forecast</h2>
+        <section class="panel forecast"><div class="heading"><h2 id="forecast-title">Forecast</h2>
           <div class="tabs"><button data-tab="hourly">Hourly</button><button data-tab="daily">Daily</button>
           <button data-tab="radar" class="mobile-tab">Radar</button></div></div>
           <div id="periods"></div></section>
@@ -167,6 +168,17 @@ class AtmosphereWeatherCard extends HTMLElement {
     const current = weather?.current || {};
     const [, , background, surface, accent] = themes.find(item => item[0] === this.theme) || themes[0];
     shell.dataset.theme = this.theme;
+    const brand = shell.querySelector('.brand');
+    if (this.theme === 'trek' && !brand.querySelector('img')) {
+      const logo = document.createElement('img');
+      logo.src = trekLogo;
+      logo.alt = 'Atmosphere & Weather Scan emblem';
+      brand.prepend(logo);
+    } else if (this.theme !== 'trek') {
+      brand.querySelector('img')?.remove();
+    }
+    this.$('forecast-title').textContent = this.theme === 'trek'
+      ? (this.tab === 'daily' ? 'Daily forecast' : 'Hourly forecast') : 'Forecast';
     shell.dataset.tab = this.tab;
     shell.style.setProperty('--bg',background);
     shell.style.setProperty('--surface',surface);
@@ -210,6 +222,9 @@ class AtmosphereWeatherCard extends HTMLElement {
       <span class="chance">${this.measure(item.precipitation_probability,'%')}</span></div>`).join('')}</div>`
       : '<p class="empty">Forecast unavailable</p>';
     this.$('status').textContent = current.updated_at ? (fresh ? 'Updated ' : 'Stale · last update ') + this.time(current.updated_at) : '';
+    this.$('trek-time').textContent = selected
+      ? this.date(new Date(), {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
+        + (current.updated_at ? ' · ' + this.$('status').textContent : '') : '';
     this.renderRadar();
   }
 
@@ -431,8 +446,6 @@ dialog::backdrop{background:#071019aa}.settings-tabs{margin:12px 0}.themes,.coor
 .locations{list-style:none;padding:0}.locations li{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
 .location-form,#search{display:grid;gap:8px;margin-top:12px}label{display:grid;gap:4px;font-size:.88em}label input{min-width:0}
 #results{display:grid;gap:4px;margin-top:6px}#notice{color:var(--accent);margin-bottom:0}.units{margin-top:12px}
-main[data-theme=trek]{--ink:#ffda77;--muted:#dbb975;--font:"Avenir Next Condensed","Arial Narrow",sans-serif}
-main[data-theme=trek] :is(.panel,.hero){border-inline-start:12px solid #a29bda;border-top:5px solid #df893e;border-radius:24px 8px 8px 24px}
 main[data-theme=neon] .panel{box-shadow:inset 0 0 24px #28deef14}
 @container(max-width:900px){.hourly .period:nth-child(n+7){display:none}.periods.hourly{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @container(max-width:700px){
@@ -443,6 +456,74 @@ main[data-theme=neon] .panel{box-shadow:inset 0 0 24px #28deef14}
  main[data-tab=radar] .radar .heading{display:none}main[data-tab=radar] #periods{visibility:hidden}
  .period strong{font-size:1.15em}.period span,.period small{font-size:.66em}.period .icon{font-size:1.35em}.tabs button{padding:7px 8px}
 }
+.trek-settings,#trek-time{display:none}
+main[data-theme=trek]{
+ --gold:#f3c969;--orange:#ff9955;--blue:#a6bef6;--violet:#9b91dd;--ink:var(--gold);
+ --muted:#e2ba75;--font:"Avenir Next Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
+ --rail:clamp(16px,4cqw,66px);background:#050505;padding-inline-start:calc(var(--rail) + 16px);
+ position:relative;grid-template-rows:clamp(60px,10vh,100px) minmax(130px,.9fr) 65px minmax(190px,1.1fr) auto;
+}
+main[data-theme=trek]::before{
+ content:"";position:absolute;inset:16px auto 30px 8px;width:var(--rail);border-radius:44px 0 0 44px;
+ background:linear-gradient(var(--gold) 0 18%,#050505 18% 18.6%,var(--blue) 18.6% 30%,#050505 30% 30.6%,var(--orange) 30.6% 68%,#050505 68% 68.6%,var(--blue) 68.6% 80%,#050505 80% 80.6%,#dd8a24 80.6%);
+}
+main[data-theme=trek] header{
+ border-bottom:10px solid transparent;border-radius:0 38px 0 24px;padding:0 18px 4px 10px;
+ background:linear-gradient(#050505,#050505) padding-box,linear-gradient(90deg,var(--gold) 0 42%,#050505 42% 43%,var(--orange) 43% 55%,#050505 55% 56%,var(--blue) 56% 82%,#050505 82% 83%,var(--gold) 83%) border-box;
+}
+main[data-theme=trek] .brand{min-width:0;gap:12px;font-size:clamp(22px,4cqw,66px);text-transform:uppercase;line-height:1}
+main[data-theme=trek] .brand>span,main[data-theme=trek] .gear{display:none}
+main[data-theme=trek] .brand img{width:clamp(42px,7cqh,82px);aspect-ratio:1;object-fit:contain;border-radius:50%;flex:none}
+main[data-theme=trek] header>.actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;justify-items:end}
+main[data-theme=trek] :is(#settings,.tabs button){border:0;border-radius:999px;background:var(--violet);color:#080612;font-weight:800}
+main[data-theme=trek] .tabs button[aria-pressed=true]{background:var(--orange);outline:none}
+main[data-theme=trek] .trek-settings,main[data-theme=trek] #trek-time{display:block}
+main[data-theme=trek] #trek-time{grid-column:1/-1;font-size:.83em;text-align:right}
+main[data-theme=trek] #location{background:#050505;border-color:transparent;color:var(--gold);text-transform:uppercase;font-weight:800}
+main[data-theme=trek] :is(.hero,.panel){
+ --frame:var(--gold);border:0;border-radius:34px 24px 24px 34px;
+ box-shadow:inset 13px 0 var(--frame),inset 0 8px var(--frame),inset -5px 0 var(--frame),inset 0 -6px var(--frame);
+ background:#050505;color:var(--ink);padding:17px 16px 13px 25px;
+}
+main[data-theme=trek] .hero{--frame:var(--orange);box-shadow:inset 14px 0 var(--orange),inset 0 8px var(--orange),inset 0 -7px var(--blue),inset -8px 0 var(--gold)}
+main[data-theme=trek] .hero::after{display:none}
+main[data-theme=trek] .orb{outline:1px solid #a6bef683;outline-offset:10px;box-shadow:0 0 0 18px #a6bef61c,0 0 48px #a6bef665}
+main[data-theme=trek] .temperature{font-weight:800}
+main[data-theme=trek] .condition{font-size:clamp(15px,2.8cqw,38px);font-weight:800;text-transform:uppercase}
+main[data-theme=trek] .summary strong{border:4px solid var(--orange);border-inline-width:9px;border-radius:14px;padding:4px 8px}
+main[data-theme=trek] .metrics>div{
+ --meter:var(--gold);background:#050505;color:var(--meter);border:0;border-radius:999px;
+ box-shadow:inset 13px 0 var(--meter),inset -13px 0 var(--meter),inset 0 4px var(--meter),inset 0 -4px var(--meter);padding:8px 20px
+}
+main[data-theme=trek] .metrics>div:nth-child(2){--meter:#79c5e5}
+main[data-theme=trek] .metrics>div:nth-child(3){--meter:var(--orange)}
+main[data-theme=trek] .metrics>div:nth-child(4){--meter:#eca647}
+main[data-theme=trek] .metrics span{color:inherit}
+main[data-theme=trek] .radar{--frame:var(--violet);color:var(--violet)}
+main[data-theme=trek] h2{text-transform:uppercase;font-weight:800;font-size:clamp(15px,2cqw,29px)}
+main[data-theme=trek] .period{
+ border-radius:12px 8px 4px 8px;border-left:4px solid var(--orange);border-bottom:4px solid var(--violet);
+ background:#0e0b07;overflow:hidden
+}
+main[data-theme=trek] .period small{background:#352716;color:var(--gold);width:100%;padding:3px 0;font-weight:800}
+@container(max-width:700px){
+ main[data-theme=trek]{--rail:8px;padding:8px 8px 8px 21px;grid-template-rows:58px minmax(110px,.7fr) 66px minmax(185px,1fr) auto}
+ main[data-theme=trek]::before{inset-block:8px 24px;border-radius:8px 0 0 8px}
+ main[data-theme=trek] header{border-bottom-width:6px;padding:0 2px 3px;border-radius:0 0 0 12px}
+ main[data-theme=trek] .brand{gap:4px;font-size:clamp(15px,4.5cqw,24px)}
+ main[data-theme=trek] .brand img{width:30px}
+ main[data-theme=trek] #location{max-width:28cqw;padding:4px;font-size:.78em}
+ main[data-theme=trek] #settings{font-size:.73em;padding:5px}
+ main[data-theme=trek] #trek-time{font-size:.65em}
+ main[data-theme=trek] :is(.hero,.panel){border-radius:19px 12px 12px 19px;padding:10px 9px 9px 14px;box-shadow:inset 6px 0 var(--frame),inset 0 4px var(--frame),inset -3px 0 var(--frame),inset 0 -3px var(--frame)}
+ main[data-theme=trek] .metrics>div{padding:8px 5px;border-radius:10px;box-shadow:inset 0 3px var(--meter),inset 0 -3px var(--meter)}
+ main[data-theme=trek] .period{border-left-width:2px}
+ main[data-theme=trek] .tabs button{padding:6px;font-size:.72em}
+ main[data-theme=trek] .heading{gap:4px}
+ main[data-theme=trek] .summary strong{border-width:2px;padding:3px 4px}
+ main[data-theme=trek][data-tab=radar] .radar{inset:45px 4px 4px}
+}
+
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
 window.customCards = window.customCards || [];
