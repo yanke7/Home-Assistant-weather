@@ -612,6 +612,30 @@ main[data-theme=trek] .metrics span{font-size:clamp(10px,1.22cqw,19px);line-heig
  main[data-theme=trek] .metrics span{font-size:9px}
 }
 
+main[data-theme=trek] header{
+ --emblem:clamp(68px,9.2cqw,108px);
+ --brand-gap:clamp(5px,.65cqw,10px);
+ --header-inset:4px;
+ position:relative;border-bottom:0;background:#050505;
+ padding:0 14px 12px var(--header-inset);
+}
+main[data-theme=trek] header::after{
+ content:"";position:absolute;left:calc(var(--header-inset) + var(--emblem) + var(--brand-gap));
+ right:0;bottom:0;height:10px;pointer-events:none;
+ background:linear-gradient(90deg,var(--gold) 0 47%,#050505 47% 48%,var(--orange) 48% 63%,#050505 63% 64%,var(--blue) 64% 86%,#050505 86% 87%,var(--gold) 87%);
+}
+main[data-theme=trek] .brand{gap:var(--brand-gap)}
+main[data-theme=trek] .brand img{width:var(--emblem);position:relative;top:6px;z-index:1}
+main[data-theme=trek]{
+ grid-template-rows:clamp(87px,13vh,118px) minmax(130px,.9fr) 65px minmax(190px,1.1fr) auto;
+}
+@container(max-width:700px){
+ main[data-theme=trek]{grid-template-rows:61px minmax(110px,.7fr) 66px minmax(185px,1fr) auto}
+ main[data-theme=trek] header{--emblem:clamp(36px,10.4cqw,48px);--brand-gap:4px;--header-inset:2px;padding:0 2px 7px}
+ main[data-theme=trek] header::after{height:5px}
+ main[data-theme=trek] .brand img{top:3px}
+}
+
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
 window.customCards = window.customCards || [];
