@@ -568,8 +568,14 @@ class AtmosphereWeatherCard extends HTMLElement {
 
   renderWeatherAlerts() {
     const banner = this.$('alert-banner');
-    const items = this.weatherAlerts?.location === this.data?.selected?.id
+    const liveItems = this.weatherAlerts?.location === this.data?.selected?.id
       ? (this.weatherAlerts?.items || []).filter(item => Date.parse(item.expires) > Date.now()) : [];
+    const preview = new URLSearchParams(window.location.search).get('atmosphere_alert_preview') === '1';
+    const items = preview ? [...liveItems, {
+      kind:'warning', title:'Winter storm warning', area:'Sample area',
+      description:'This is a simulated alert for previewing the dashboard banner. No action is required.',
+      source:'preview',
+    }] : liveItems;
     banner.hidden = !items.length;
     this.$('shell').classList.toggle('has-alerts',Boolean(items.length));
     if (!items.length) {
@@ -578,10 +584,12 @@ class AtmosphereWeatherCard extends HTMLElement {
     }
     const first = items[0];
     banner.dataset.kind = first.kind;
-    banner.innerHTML = `<strong>${escape(first.kind)}</strong><span>${escape(first.title)}</span><b>${items.length > 1 ? '+' + (items.length - 1) : '›'}</b>`;
+    banner.innerHTML = `<strong>${first.source === 'preview' ? 'Test warning' : escape(first.kind)}</strong><span>${escape(first.title)}</span><b>${items.length > 1 ? '+' + (items.length - 1) : '›'}</b>`;
     const agencies = {ECCC:['Environment and Climate Change Canada','https://weather.gc.ca/warnings/'],
       NWS:['National Weather Service','https://www.weather.gov/alerts']};
     this.$('alerts-list').innerHTML = items.map(item => {
+      if (item.source === 'preview') return `<article><h3>Test: Winter storm warning</h3>
+        <p class="alert-description">${escape(item.description)}</p></article>`;
       const [name,url] = agencies[item.source] || ['Official weather agency',''];
       return `<article><h3>${escape(item.title)}</h3>
         <p>${escape(item.area)} · Expires ${escape(this.date(item.expires,{weekday:'short',hour:'numeric',minute:'2-digit',timeZoneName:'short'}))}</p>
