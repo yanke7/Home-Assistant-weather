@@ -264,10 +264,31 @@ class AtmosphereWeatherCard extends HTMLElement {
        <div class="heading"><h2 id="settings-title">Settings</h2><button id="close" aria-label="Close settings">✕</button></div>
        <div class="tabs settings-tabs"><button data-settings="locations">Locations</button><button data-settings="appearance">Appearance</button><button data-settings="data">Data</button></div>
        <div id="settings-content"></div><p id="notice" role="status"></p>
+      </dialog>
+      <dialog id="weather-details" class="reading-dialog" aria-labelledby="reading-title">
+        <div class="heading"><h2 id="reading-title"></h2><div class="actions">
+          <button id="reading-gear" aria-label="Customize weather readings" title="Customize weather readings">⚙</button>
+          <button id="reading-close" aria-label="Close weather details">✕</button>
+        </div></div>
+        <p id="reading-context"></p><dl id="reading-list"></dl>
+      </dialog>
+      <dialog id="reading-settings" class="reading-dialog" aria-labelledby="reading-settings-title">
+        <div class="heading"><h2 id="reading-settings-title">Choose readings</h2>
+          <button id="reading-settings-close" aria-label="Back to weather details">✕</button></div>
+        <p>Choose what to show in this type of forecast.</p>
+        <div id="reading-choices"></div><button id="reading-reset">Show all readings</button>
       </dialog></main>`;
     this.$('settings').onclick = () => {
       this.settingsPanel('locations');
       this.$('dialog').showModal();
+    };
+    this.$('reading-close').onclick = () => this.$('weather-details').close();
+    this.$('reading-gear').onclick = () => this.openReadingSettings();
+    this.$('reading-settings-close').onclick = () => this.$('reading-settings').close();
+    this.$('reading-reset').onclick = () => {
+      this.write('readings.' + this.reading.kind,'[]');
+      this.renderReadings();
+      this.openReadingSettings();
     };
     this.$('close').onclick = () => this.$('dialog').close();
     this.$('location').onchange = event => {
@@ -287,6 +308,8 @@ class AtmosphereWeatherCard extends HTMLElement {
         this.render();
         this.loadRadar();
       }
+      if (button?.dataset.reading) this.openReadings(button.dataset.reading,Number(button.dataset.period));
+      else if (!button && event.target.closest('.hero')) this.openReadings('current');
       if (button?.dataset.settings) this.settingsPanel(button.dataset.settings);
     });
     this.render();
@@ -382,7 +405,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.$('hero').dataset.sky = current.sky_period || (current.is_day === 0 ? 'night' : 'day');
     this.updateSky();
     this.$('sky-content').innerHTML = selected ? `<div class="current"><div class="kicker">${escape(selected.name)}</div>
-       <div class="temperature">${this.temp(current.temperature_2m)}<sup>${this.imperial ? 'F' : 'C'}</sup></div>
+       <button class="temperature current-reading" data-reading="current" aria-label="Current weather details">${this.temp(current.temperature_2m)}<sup>${this.imperial ? 'F' : 'C'}</sup></button>
        <span class="trek-feels">Feels like ${this.temp(current.apparent_temperature)}</span><div class="condition">${escape(label || 'Waiting for weather')}</div></div>
        ${briefing ? `<p class="weather-briefing">${escape(briefing)}</p>` : ''}
        <div class="orb" aria-hidden="true"></div><div class="summary">
@@ -406,8 +429,8 @@ class AtmosphereWeatherCard extends HTMLElement {
       button.setAttribute('aria-pressed',String(button.dataset.tab === this.tab)));
     const mode = this.tab === 'daily' ? 'daily' : 'hourly';
     const periods = (weather?.[mode] || []).slice(0,mode === 'daily' ? 7 : 8);
-    this.$('periods').innerHTML = periods.length ? `<div class="periods ${mode}">${periods.map(item => `
-      <div class="period"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : {hour:'numeric'})}</small>
+    this.$('periods').innerHTML = periods.length ? `<div class="periods ${mode}">${periods.map((item,index) => `
+      <div class="period"><button class="period-reading" data-reading="${mode}" data-period="${index}" aria-label="${escape(this.date(item.datetime,{weekday:'long',month:'short',day:'numeric',...(mode === 'hourly' ? {hour:'numeric',minute:'2-digit'} : {})}))} weather details"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : {hour:'numeric'})}</small></button>
       <span class="icon" role="img" aria-label="${escape(item.condition || 'Unknown condition')}"><i aria-hidden="true">${icons[item.condition] || '◌'}</i></span>
       <strong>${this.temp(item.native_temperature)}</strong>
       <span>${mode === 'daily' ? 'Low ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed) + ' ' + this.compass(item.wind_bearing,item.native_wind_speed)}</span>
@@ -418,6 +441,91 @@ class AtmosphereWeatherCard extends HTMLElement {
       ? this.date(new Date(), {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
         + (current.updated_at ? ' · ' + this.$('status').textContent : '') : '';
     this.renderRadar();
+  }
+
+  openReadings(kind,index) {
+    const weather = this.data?.weather;
+    const record = kind === 'current' ? weather?.current : weather?.[kind]?.[index];
+    if (!record) return;
+    this.reading = {kind,record,location:this.data.selected?.name,fresh:this.data.fresh};
+    this.$('reading-title').textContent = {current:'Current conditions',hourly:'Hourly forecast',daily:'Daily forecast'}[kind];
+    const timestamp = kind === 'current' ? record.observed_at : record.datetime;
+    const date = timestamp ? this.date(timestamp,{weekday:'long',month:'short',day:'numeric',
+      ...(kind === 'daily' ? {} : {hour:'numeric',minute:'2-digit',timeZoneName:'short'})}) : '';
+    this.$('reading-context').textContent = [this.reading.location,date,this.reading.fresh ? '' : 'Last available data'].filter(Boolean).join(' · ');
+    this.renderReadings();
+    this.$('weather-details').showModal();
+  }
+
+  readingRows() {
+    const {kind,record:r} = this.reading;
+    const current = kind === 'current';
+    const temp = value => value == null ? null : this.temp(value) + (this.imperial ? 'F' : 'C');
+    const measure = (value,unit,factor = 1,digits = 0) =>
+      Number.isFinite(value) ? this.measure(value,unit,factor,digits) : null;
+    const amount = (value,snow = false) => measure(value,this.imperial ? 'in' : snow ? 'cm' : 'mm',
+      this.imperial ? 1/(snow ? 2.54 : 25.4) : 1,this.imperial ? 2 : 1);
+    const wind = current ? r.wind_speed_10m : r.native_wind_speed;
+    const bearing = current ? r.wind_direction_10m : r.wind_bearing;
+    const direction = this.compass(bearing,wind);
+    const timestamp = value => value ? this.date(value,{weekday:'short',hour:'numeric',minute:'2-digit'}) : null;
+    return [
+      ['condition','Conditions',r.condition === 'partlycloudy' ? 'Partly cloudy' : r.condition?.replaceAll('-',' ')],
+      ['temp',kind === 'daily' ? 'High temperature' : 'Temperature',temp(current ? r.temperature_2m : r.native_temperature)],
+      ['feels','Feels like',temp(r.apparent_temperature)],
+      ['high','Forecast high',temp(r.temperature_high)],
+      ['low',current ? 'Forecast low' : 'Low temperature',temp(current ? r.temperature_low : r.native_templow)],
+      ['humidity','Humidity',measure(r.relative_humidity_2m,'%')],
+      ['pressure','Pressure',measure(r.pressure_msl,this.imperial ? 'inHg' : 'hPa',this.imperial ? .02953 : 1,this.imperial ? 2 : 1)],
+      ['wind','Wind speed',wind == null ? null : this.wind(wind)],
+      ['gusts','Wind gusts',r.wind_gusts_10m == null ? null : this.wind(r.wind_gusts_10m)],
+      ['direction','Wind direction',direction ? direction + ' · ' + Math.round(bearing) + '°' : null],
+      ['precipChance',current ? 'Next hour precipitation chance' : kind === 'daily' ? 'Peak precipitation chance' : 'Precipitation chance',
+        measure(current ? r.next_precipitation : r.precipitation_probability,'%')],
+      ['precipAmount',current ? 'Precipitation in current interval' : 'Precipitation accumulation',amount(current ? r.precipitation : r.native_precipitation)],
+      ['snow','Snowfall depth',amount(r.snowfall_cm,true)],
+      ['cloud','Cloud cover',measure(r.cloud_cover,'%')],
+      ['uv',current ? 'Next hour UV index' : 'UV index',Number.isFinite(r.uv_index) ? r.uv_index : null],
+      ['visibility',current ? 'Next hour visibility' : 'Visibility',measure(r.visibility,this.imperial ? 'mi' : 'km',this.imperial ? 1/1609.344 : .001,1)],
+      ['daylight','Daylight',r.is_day == null ? null : r.is_day ? 'Yes' : 'No'],
+      ['freezing','At or below freezing',current && Number.isFinite(r.temperature_2m) ? (r.temperature_2m <= 0 ? 'Yes' : 'No') : null],
+      ['expected','Precipitation expected next hour',current && Number.isFinite(r.next_precipitation) ? (r.next_precipitation >= 50 ? 'Yes' : 'No') : null],
+      ['sunrise',current ? 'Next sunrise' : 'Sunrise',timestamp(r.sunrise)],
+      ['sunset',current ? 'Next sunset' : 'Sunset',timestamp(r.sunset)],
+      ['interval','Precipitation observation interval',measure(r.interval,'min',1/60,1)],
+      ['updated','Last successful update',timestamp(r.updated_at)],
+    ];
+  }
+
+  hiddenReadings() {
+    try {
+      const value = JSON.parse(this.read('readings.' + this.reading.kind));
+      return new Set(Array.isArray(value) ? value : []);
+    } catch { return new Set(); }
+  }
+
+  renderReadings() {
+    const hidden = this.hiddenReadings();
+    const visible = this.readingRows().filter(([key,,value]) => value != null && !hidden.has(key));
+    const list = this.$('reading-list');
+    list.innerHTML = visible.map(([,label,value]) =>
+      `<div><dt>${escape(label)}</dt><dd>${escape(value)}</dd></div>`).join('');
+    if (!visible.length) list.innerHTML = '<div><dt>No readings to show</dt><dd>⚙</dd></div>';
+  }
+
+  openReadingSettings() {
+    const hidden = this.hiddenReadings();
+    const choices = this.$('reading-choices');
+    choices.innerHTML = this.readingRows().filter(([, ,value]) => value != null).map(([key,label]) =>
+      `<label><input type="checkbox" value="${key}" ${hidden.has(key) ? '' : 'checked'}> ${escape(label)}</label>`).join('');
+    choices.onchange = event => {
+      const {checked,value} = event.target;
+      if (checked) hidden.delete(value); else hidden.add(value);
+      this.write('readings.' + this.reading.kind,JSON.stringify([...hidden]));
+      this.renderReadings();
+    };
+    const dialog = this.$('reading-settings');
+    if (!dialog.open) dialog.showModal();
   }
 
   async loadRadar() {
@@ -882,6 +990,22 @@ main[data-theme=trek] .daily .period .chance .accumulation{
  white-space:nowrap;
  line-height:1.15;
 }
+
+.current-reading,.period-reading{background:none;border:0;color:inherit;padding:0;cursor:pointer}
+.current-reading{text-align:left;width:max-content}
+.period-reading{display:block;width:100%;min-height:28px}
+.period-reading small{display:block}
+.current-reading:hover,.period-reading:hover{color:var(--accent)}
+.reading-dialog .heading{gap:8px}
+.reading-dialog .heading button{min-width:42px;height:42px}
+#reading-context{color:var(--muted);margin:8px 0 16px}
+#reading-list{margin:0}
+#reading-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+#reading-list dd{margin:0;text-align:right;font-weight:600}
+#reading-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}
+#reading-choices label{display:flex;align-items:center;min-height:34px}
+#reading-choices input{accent-color:var(--accent);flex:none}
+@container(max-width:400px){#reading-choices{grid-template-columns:1fr}}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);

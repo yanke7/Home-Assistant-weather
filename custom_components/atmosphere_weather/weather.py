@@ -74,5 +74,5 @@ class AtmosphereWeather(SingleCoordinatorWeatherEntity):
         rows = (self.coordinator.data or {}).get(key)
         if rows is None:
             return None
-        return [{field: value for field, value in row.items() if field != "snowfall_cm"}
+        return [{field: value for field, value in row.items() if field not in {"snowfall_cm", "is_day", "visibility", "uv_index", "sunrise", "sunset"}}
                 for row in rows]

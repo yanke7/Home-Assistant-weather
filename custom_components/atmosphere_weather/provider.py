@@ -81,6 +81,11 @@ def forecast(row, daily):
         "native_precipitation": number(row.get("precipitation_sum" if daily else "precipitation")),
         "precipitation_probability": number(row.get("precipitation_probability_max" if daily else "precipitation_probability")),
         "wind_bearing": number(row.get("wind_direction_10m")),
+        "is_day": number(row.get("is_day")),
+        "visibility": number(row.get("visibility")),
+        "uv_index": number(row.get("uv_index")),
+        "sunrise": timestamp(row.get("sunrise")) if daily else None,
+        "sunset": timestamp(row.get("sunset")) if daily else None,
         "snowfall_cm": number(row.get("snowfall_sum" if daily else "snowfall")),
         "native_wind_speed": number(row.get("wind_speed_10m")),
     }
