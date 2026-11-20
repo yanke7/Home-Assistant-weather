@@ -158,6 +158,10 @@ class AtmosphereWeatherCard extends HTMLElement {
   }
   connectedCallback() {
     this.build();
+    this.popupObserver = new MutationObserver(() => this.schedulePopupFit());
+    for (const popup of this.shadowRoot.querySelectorAll('dialog')) {
+      this.popupObserver.observe(popup,{subtree:true,childList:true,attributes:true,attributeFilter:['open']});
+    }
     this.fitViewport = () => {
       const viewport = window.visualViewport;
       const bottom = viewport ? viewport.height + viewport.offsetTop : window.innerHeight;
@@ -165,11 +169,13 @@ class AtmosphereWeatherCard extends HTMLElement {
       if (this.getClientRects().length && bottom > top) {
         this.style.setProperty('--atmosphere-available-height', Math.floor(bottom - top) + 'px');
       }
+      this.schedulePopupFit();
     };
     window.addEventListener('resize', this.fitViewport);
     window.visualViewport?.addEventListener('resize', this.fitViewport);
     this.viewportFrame = requestAnimationFrame(this.fitViewport);
     this.radarLayoutObserver = new ResizeObserver(() => {
+      this.schedulePopupFit();
       const mobile = this.$('shell').clientWidth <= 700;
       const target = this.$(mobile ? 'mobile-radar-slot' : 'desktop-radar-slot');
       const radar = this.$('radar');
@@ -189,12 +195,38 @@ class AtmosphereWeatherCard extends HTMLElement {
   disconnectedCallback() {
     clearInterval(this.timer);
     cancelAnimationFrame(this.viewportFrame);
+    cancelAnimationFrame(this.popupFrame);
+    this.popupObserver?.disconnect();
     this.radarLayoutObserver?.disconnect();
     window.removeEventListener('resize', this.fitViewport);
     window.visualViewport?.removeEventListener('resize', this.fitViewport);
     this.request++;
     this.sky?.dispose();
     this.sky = null;
+  }
+
+  schedulePopupFit() {
+    cancelAnimationFrame(this.popupFrame);
+    this.popupFrame = requestAnimationFrame(() => {
+      for (const popup of this.shadowRoot.querySelectorAll('dialog[open]')) {
+        popup.style.removeProperty('--popup-fitted-size');
+        const preferred = parseFloat(getComputedStyle(popup).fontSize);
+        if (popup.scrollHeight <= popup.clientHeight || preferred <= 12) continue;
+
+        // Find the largest readable size that fits, leaving long content scrollable.
+        let low = 12;
+        let high = preferred;
+        popup.style.setProperty('--popup-fitted-size',low + 'px');
+        if (popup.scrollHeight > popup.clientHeight) continue;
+        for (let attempt = 0; attempt < 6; attempt++) {
+          const size = (low + high) / 2;
+          popup.style.setProperty('--popup-fitted-size',size + 'px');
+          if (popup.scrollHeight <= popup.clientHeight) low = size;
+          else high = size;
+        }
+        popup.style.setProperty('--popup-fitted-size',low + 'px');
+      }
+    });
   }
 
   async startSky() {
@@ -1111,7 +1143,7 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 #settings-content p{margin:8px 0 0;line-height:1.4}
 
 @container(min-width:800px){
- #weather-details #reading-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;font-size:13px}
+ #weather-details #reading-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}
  #weather-details #reading-list>div{padding:0;line-height:1.15}
  #weather-details #reading-context{margin:2px 0 4px}
  #weather-details #reading-list>div:only-child{grid-column:1/-1}
@@ -1129,6 +1161,12 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 #alerts-list article{padding:12px 0;border-bottom:1px solid var(--line)}
 #alerts-list .alert-description{white-space:pre-line}
 #alerts-list a{color:var(--accent)}
+
+#shell dialog{font-size:var(--popup-fitted-size,clamp(14px,1.55cqw,26px))}
+#periods .period.period-reading small{font-size:clamp(14px,1.55cqw,26px);font-weight:700;line-height:1.15}
+@container(max-width:700px){
+ #periods .period.period-reading small{font-size:clamp(12px,3.8cqw,19px)}
+}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
