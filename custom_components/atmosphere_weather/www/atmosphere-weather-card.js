@@ -269,8 +269,11 @@ class AtmosphereWeatherCard extends HTMLElement {
       <footer><a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather by Open-Meteo</a><span id="status" role="status"></span></footer>
       <dialog id="dialog" aria-labelledby="settings-title">
        <div class="heading"><h2 id="settings-title">Settings</h2><button id="close" aria-label="Close settings">✕</button></div>
-       <div class="tabs settings-tabs"><button data-settings="locations">Locations</button><button data-settings="appearance">Appearance</button><button data-settings="data">Data</button></div>
-       <div id="settings-content"></div><p id="notice" role="status"></p>
+       <div id="settings-content">
+        <section><h3>Locations</h3><div id="location-settings"></div><p id="notice" role="status"></p></section>
+        <section><h3>Appearance</h3><div id="appearance-settings"></div></section>
+        <section><h3>Data</h3><p>Open-Meteo receives saved coordinates and location searches. Home Assistant serves the base map and RainViewer supplies precipitation tiles. Provider and radar controls are under Devices &amp; services → Atmosphere Weather → Configure.</p></section>
+       </div>
       </dialog>
       <dialog id="reading-settings" class="reading-dialog" aria-labelledby="reading-settings-title">
         <div class="heading"><h2 id="reading-settings-title">Choose readings</h2>
@@ -279,8 +282,10 @@ class AtmosphereWeatherCard extends HTMLElement {
         <div id="reading-choices"></div><button id="reading-reset">Show all readings</button>
       </dialog></main>`;
     this.$('settings').onclick = () => {
-      this.settingsPanel('locations');
+      this.renderLocationSettings();
+      this.renderAppearanceSettings();
       this.$('dialog').showModal();
+      this.$('dialog').scrollTop = 0;
     };
     this.$('weather-details').addEventListener('keydown', event => {
       if (event.key === 'Escape') this.$('weather-details').close();
@@ -314,7 +319,6 @@ class AtmosphereWeatherCard extends HTMLElement {
       }
       if (button?.dataset.reading) this.openReadings(button.dataset.reading,Number(button.dataset.period));
       else if (!button && event.target.closest('.hero') && !event.target.closest('dialog')) this.openReadings('current');
-      if (button?.dataset.settings) this.settingsPanel(button.dataset.settings);
     });
     this.render();
   }
@@ -612,34 +616,29 @@ class AtmosphereWeatherCard extends HTMLElement {
     };
   }
 
-  settingsPanel(panel) {
+  renderAppearanceSettings() {
+    const content = this.$('appearance-settings');
+    content.innerHTML = `<div class="themes">${themes.map(([id,name,bg,,accent]) =>
+      `<button data-theme-choice="${id}" aria-pressed="${this.theme === id}"><i style="background:${bg};border-color:${accent}"></i>${name}</button>`).join('')}</div>
+      <label class="units">Units <select id="units" aria-label="Units"><option value="metric">Metric</option><option value="imperial">Imperial</option></select></label>`;
+    content.querySelectorAll('[data-theme-choice]').forEach(button => button.onclick = () => {
+      this.theme = button.dataset.themeChoice;
+      this.write('theme',this.theme);
+      this.render();
+      content.querySelectorAll('[data-theme-choice]').forEach(item =>
+        item.setAttribute('aria-pressed',String(item === button)));
+    });
+    this.$('units').value = this.imperial ? 'imperial' : 'metric';
+    this.$('units').onchange = event => {
+      this.imperial = event.target.value === 'imperial';
+      this.write('units',event.target.value);
+      this.render();
+    };
+  }
+
+  renderLocationSettings() {
     this.$('notice').textContent = '';
-    this.shadowRoot.querySelectorAll('[data-settings]').forEach(button =>
-      button.setAttribute('aria-pressed',String(button.dataset.settings === panel)));
-    const content = this.$('settings-content');
-    if (panel === 'appearance') {
-      content.innerHTML = `<div class="themes">${themes.map(([id,name,bg,,accent]) =>
-        `<button data-theme-choice="${id}" aria-pressed="${this.theme === id}"><i style="background:${bg};border-color:${accent}"></i>${name}</button>`).join('')}</div>
-        <label class="units">Units <select id="units"><option value="metric">Metric</option><option value="imperial">Imperial</option></select></label>`;
-      content.querySelectorAll('[data-theme-choice]').forEach(button => button.onclick = () => {
-        this.theme = button.dataset.themeChoice;
-        this.write('theme',this.theme);
-        this.render();
-        content.querySelectorAll('[data-theme-choice]').forEach(item =>
-          item.setAttribute('aria-pressed',String(item === button)));
-      });
-      this.$('units').value = this.imperial ? 'imperial' : 'metric';
-      this.$('units').onchange = event => {
-        this.imperial = event.target.value === 'imperial';
-        this.write('units',event.target.value);
-        this.render();
-      };
-      return;
-    }
-    if (panel === 'data') {
-      content.innerHTML = '<p>Open-Meteo receives saved coordinates to fetch weather and city or postal search terms. The radar view loads map tiles from OpenStreetMap and RainViewer. Provider and radar controls are under Devices &amp; services → Atmosphere Weather → Configure.</p>';
-      return;
-    }
+    const content = this.$('location-settings');
     const locations = this.data?.locations || [];
     const admin = this._hass?.user?.is_admin;
     content.innerHTML = `<ul class="locations">${locations.map(location => `<li><span>${escape(location.name)}</span>
@@ -699,7 +698,7 @@ class AtmosphereWeatherCard extends HTMLElement {
         this.frames = [];
         this.radarKey = null;
         await this.refresh(8);
-        this.settingsPanel('locations');
+        this.renderLocationSettings();
         notice.textContent = action === 'remove_location' ? 'Location removed' : 'Location saved';
       } catch (error) { notice.textContent = error.message || 'Unable to save'; }
       finally { form.querySelectorAll('button').forEach(button => button.disabled = false); }
@@ -763,7 +762,7 @@ h2{margin:0;font-size:1.08em}.tabs{display:flex;gap:5px}.tabs button{font-size:.
 footer a,.radar-content a{color:inherit}footer{gap:8px}
 dialog{width:min(570px,calc(100vw - 24px));max-height:calc(100dvh - 28px);overflow:auto;
  color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:18px}
-dialog::backdrop{background:#071019aa}.settings-tabs{margin:12px 0}.themes,.coordinates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+dialog::backdrop{background:#071019aa}.themes,.coordinates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .themes button{display:flex;gap:8px;align-items:center;text-align:left}.themes i{width:23px;height:23px;flex:none;border:2px solid;border-radius:50%}
 .locations{list-style:none;padding:0}.locations li{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}
 .location-form,#search{display:grid;gap:8px;margin-top:12px}label{display:grid;gap:4px;font-size:.88em}label input{min-width:0}
@@ -1041,6 +1040,18 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 }
 #weather-details #reading-context{margin:4px 0 6px}
 #weather-details #reading-list>div{padding:6px 0}
+
+#settings .gear{font-size:24px;line-height:1}
+#reading-gear,#reading-close,#reading-settings-close,#close{
+ min-width:46px;min-height:46px;font:normal 26px/1 system-ui,sans-serif;
+ display:grid;place-items:center;padding:4px;
+}
+#reading-gear{font-size:29px}
+#dialog>.heading{position:sticky;top:-18px;z-index:2;padding-block:4px;background:var(--bg)}
+#settings-content>section{padding:14px 0;border-bottom:1px solid var(--line)}
+#settings-content>section:last-child{border-bottom:0}
+#settings-content h3{font-size:1.08em;margin:0 0 9px;color:var(--accent)}
+#settings-content p{margin:8px 0 0;line-height:1.4}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
