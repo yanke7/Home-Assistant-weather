@@ -872,6 +872,17 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
  main[data-tab=radar]{grid-template-rows:auto minmax(104px,.3fr) 63px minmax(194px,1fr) auto}
 }
 
+/* Daily snow totals must not change the height of the framed icon. */
+main[data-theme=trek] .daily .period .chance{
+ line-height:1.15;
+ min-height:calc(2.3em + 6px);
+ flex:none;
+}
+main[data-theme=trek] .daily .period .chance .accumulation{
+ white-space:nowrap;
+ line-height:1.15;
+}
+
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
 window.customCards = window.customCards || [];
