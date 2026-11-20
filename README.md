@@ -38,6 +38,17 @@ For **Home**, choose a climate entity under **Home thermostat**. The card displa
 
 **Appearance** offers Original, Brushed Steel, Amber Relay, Neon Grid, Midnight Drift, Aqua Current, Star Trek and Follow Appearance. Follow Appearance uses shared appearance variables when available and falls back to your Home Assistant theme. Theme and display units are local to the browser. Entity units follow Home Assistant settings.
 
+## Theme gallery
+
+Choose a theme under **Atmosphere → Settings → Appearance**. The screenshots show the same sample forecast. **Follow Appearance** uses the active Home Assistant colors, shown here with an example palette. Click any screenshot to view it full size.
+
+| | |
+| --- | --- |
+| **Original**<br>[![Atmosphere Weather in Original](docs/themes/original.jpg)](docs/themes/original.jpg) | **Brushed Steel**<br>[![Atmosphere Weather in Brushed Steel](docs/themes/brushed-steel.jpg)](docs/themes/brushed-steel.jpg) |
+| **Amber Relay**<br>[![Atmosphere Weather in Amber Relay](docs/themes/amber-relay.jpg)](docs/themes/amber-relay.jpg) | **Neon Grid**<br>[![Atmosphere Weather in Neon Grid](docs/themes/neon-grid.jpg)](docs/themes/neon-grid.jpg) |
+| **Midnight Drift**<br>[![Atmosphere Weather in Midnight Drift](docs/themes/midnight-drift.jpg)](docs/themes/midnight-drift.jpg) | **Aqua Current**<br>[![Atmosphere Weather in Aqua Current](docs/themes/aqua-current.jpg)](docs/themes/aqua-current.jpg) |
+| **Star Trek**<br>[![Atmosphere Weather in Star Trek](docs/themes/star-trek.jpg)](docs/themes/star-trek.jpg) | **Follow Appearance**<br>[![Atmosphere Weather in Follow Appearance](docs/themes/follow-appearance.jpg)](docs/themes/follow-appearance.jpg) |
+
 ## Automations
 
 Find the device for your location under the integration. Its native weather entity supports `weather.get_forecasts` for hourly and daily forecasts. Separate sensors expose temperature, feels-like temperature, humidity, pressure, wind speed, direction and gusts, precipitation, cloud cover, forecast highs and lows, upcoming sunrise and sunset, and the last successful update. UV index and visibility represent the next forecast hour.
