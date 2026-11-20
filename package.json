@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  },
+  "private": true,
+  "scripts": {
+    "build": "esbuild frontend/sky.js --bundle --format=esm --minify --outfile=custom_components/atmosphere_weather/www/sky.js"
+  }
+}

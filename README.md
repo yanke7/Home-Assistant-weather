@@ -18,6 +18,10 @@ type: custom:atmosphere-weather-card
 
 Use a unique optional `storage_key` per dashboard card to remember its selection, theme and units independently. An optional `location` config subentry ID sets the initial selection.
 
+## Animated sky
+
+The main panel uses a bundled Three.js scene to show drifting clouds, rain, snow, fog, or stars based on the selected location’s conditions. Motion pauses offscreen and when the app is in the background. Reduced-motion settings and browsers without WebGL use the static sky. The card loads Three.js from Home Assistant.
+
 ## Locations and themes
 
 Open the card's settings gear and select **Locations**. Administrators can search by city or postal code, enter coordinates and an IANA timezone manually, or edit and remove a saved location. Up to 20 locations are supported. The header dropdown switches the displayed location. Edits preserve entity IDs. Removing a location unregisters its entities, so check automations that use them first.
@@ -41,5 +45,7 @@ The bundled radar shows recent observed frames and uses [RainViewer](https://www
 Save your existing dashboard configuration. Add the integration and replace the old `custom:yanke-atmosphere-card` panel card with `custom:atmosphere-weather-card`. The new card needs only its type. The previous calendar, weather entity and radar card options can be removed from this view. Remove old resources only after checking whether other dashboards use them.
 
 ## Development
+
+Run `npm ci && npm run build` after editing `frontend/sky.js`. The generated bundle and Three.js license are shipped with the integration.
 
 Run `python -m unittest discover -s tests` with Home Assistant 2026.11 installed in Python 3.14, and `node --check custom_components/atmosphere_weather/www/atmosphere-weather-card.js`. Licensed under [GPL-3.0-only](LICENSE).

@@ -42,10 +42,32 @@ class AtmosphereWeatherCard extends HTMLElement {
   }
   connectedCallback() {
     this.build();
+    this.startSky();
     this.refresh();
     this.timer = setInterval(() => this.refresh(), 60000);
   }
-  disconnectedCallback() { clearInterval(this.timer); this.request++; }
+  disconnectedCallback() {
+    clearInterval(this.timer);
+    this.request++;
+    this.sky?.dispose();
+    this.sky = null;
+  }
+
+  async startSky() {
+    try {
+      const {mountSky} = await import('./sky.js?v=0.1.2');
+      if (!this.isConnected || this.sky) return;
+      this.sky = mountSky(this.$('hero'));
+      this.updateSky();
+    } catch {
+      // The CSS sky remains visible if the bundle or WebGL is unavailable.
+    }
+  }
+
+  updateSky() {
+    const current = this.data?.weather?.current;
+    this.sky?.update(current?.condition, current?.is_day === 0);
+  }
   call(action, data = {}) {
     return this._hass.callWS({type:'atmosphere_weather/' + action,...data});
   }
@@ -84,7 +106,7 @@ class AtmosphereWeatherCard extends HTMLElement {
       <header><div class="brand"><span aria-hidden="true">◒</span><strong>Atmosphere</strong></div>
         <div class="actions"><select id="location" aria-label="Weather location"></select>
           <button id="settings" aria-label="Settings" title="Settings">⚙</button></div></header>
-      <section id="hero" class="hero"></section>
+      <section id="hero" class="hero"><div id="sky-content"></div></section>
       <section class="metrics" id="metrics" aria-label="Weather details"></section>
       <div class="outlook">
         <section class="panel forecast"><div class="heading"><h2>Forecast</h2>
@@ -159,7 +181,8 @@ class AtmosphereWeatherCard extends HTMLElement {
     if (selected) selector.value = selected.id;
     const label = current.condition === 'partlycloudy' ? 'Partly cloudy' : current.condition?.replaceAll('-', ' ');
     this.$('hero').dataset.sky = current.sky_period || (current.is_day === 0 ? 'night' : 'day');
-    this.$('hero').innerHTML = selected ? `<div class="current"><div class="kicker">${escape(selected.name)}</div>
+    this.updateSky();
+    this.$('sky-content').innerHTML = selected ? `<div class="current"><div class="kicker">${escape(selected.name)}</div>
        <div class="temperature">${this.temp(current.temperature_2m)}<sup>${this.imperial ? 'F' : 'C'}</sup></div>
        <div class="condition">${escape(label || 'Waiting for weather')}</div></div>
        <div class="orb" aria-hidden="true"></div><div class="summary">
@@ -384,6 +407,7 @@ button,select{cursor:pointer}button:disabled{opacity:.5;cursor:default}button[ar
 main:not([data-theme=original]) .hero{background:linear-gradient(115deg,var(--surface),color-mix(in srgb,var(--surface),var(--accent) 26%));color:var(--ink)}
 .orb{position:absolute;z-index:-1;right:28%;top:18%;width:clamp(54px,10vw,108px);aspect-ratio:1;border-radius:50%;background:#ffe8b8;box-shadow:0 0 65px #ffe8b850}
 .hero[data-sky=night] .orb{background:#dce8f0;box-shadow:0 0 45px #dce8f045}
+#sky-content{display:contents}.hero canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:-1}.hero canvas[hidden]{display:none}
 .hero::after{content:'';position:absolute;z-index:-1;top:53%;right:15%;width:54%;height:34px;border-radius:50%;filter:blur(16px);background:#d9e3eb55}
 .kicker{font-size:.78em;font-weight:600;overflow-wrap:anywhere}.temperature{font-size:clamp(43px,8vh,85px);font-weight:300;letter-spacing:-.05em;line-height:1.1}
 .temperature sup{font-size:.35em;vertical-align:super;letter-spacing:0}.condition{text-transform:capitalize}.summary{display:grid;gap:8px;text-align:right;font-size:.83em}.summary strong{font-size:1.45em;font-weight:600}
