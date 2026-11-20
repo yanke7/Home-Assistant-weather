@@ -21,6 +21,63 @@ const icons = {sunny:'☀','clear-night':'☾',partlycloudy:'⛅',cloudy:'☁',r
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[char]);
 
+const moonNames = ['New moon','Waxing crescent','First quarter','Waxing gibbous',
+  'Full moon','Waning gibbous','Last quarter','Waning crescent'];
+
+function lunarPhase(now) {
+  // Approximate geocentric elongation from the same solar and lunar terms as Almanac.
+  const days = now / 86400000 - 10957.5;
+  const rad = Math.PI / 180;
+  const anomaly = (357.5291 + .98560028 * days) * rad;
+  const sun = anomaly + (102.9372 + 180 + 1.9148 * Math.sin(anomaly)
+    + .02 * Math.sin(2 * anomaly) + .0003 * Math.sin(3 * anomaly)) * rad;
+  const moon = (218.316 + 13.176396 * days
+    + 6.289 * Math.sin((134.963 + 13.064993 * days) * rad)) * rad;
+  const turn = 2 * Math.PI;
+  const angle = ((moon - sun) % turn + turn) % turn;
+  const phase = angle / turn;
+  const quarter = Math.round(phase * 4);
+  const index = Math.abs(phase - quarter / 4) < .018 ? (quarter * 2) % 8 : Math.floor(phase * 4) * 2 + 1;
+  return {angle, fraction:(1 - Math.cos(angle)) / 2, name:moonNames[index]};
+}
+
+function drawMoon(orb, latitude, now) {
+  const {angle, fraction, name} = lunarPhase(now);
+  const label = name + ' · ' + Math.round(fraction * 100) + '% illuminated';
+  orb.classList.add('lunar-orb');
+  orb.setAttribute('role','img');
+  orb.setAttribute('aria-label',label);
+  orb.removeAttribute('aria-hidden');
+  orb.title = label;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  canvas.setAttribute('aria-hidden','true');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.translate(128,128);
+  if ((angle > Math.PI) !== (latitude < 0)) ctx.scale(-1,1);
+  const radius = 126;
+  const terminator = Math.cos(angle) * radius;
+  ctx.beginPath();
+  ctx.arc(0,0,radius,0,2*Math.PI);
+  ctx.fillStyle = '#263244';
+  ctx.fill();
+
+  // Trace the right limb and return along the projected day/night boundary.
+  ctx.beginPath();
+  ctx.arc(0,0,radius,-Math.PI/2,Math.PI/2);
+  if (Math.abs(terminator) < .01) ctx.lineTo(0,-radius);
+  else ctx.ellipse(0,0,Math.abs(terminator),radius,0,Math.PI/2,-Math.PI/2,terminator > 0);
+  ctx.closePath();
+  const light = ctx.createRadialGradient(-35,-30,2,0,0,radius);
+  light.addColorStop(0,'#f3f7fa');
+  light.addColorStop(1,'#b8cde1');
+  ctx.fillStyle = light;
+  if (fraction > .0001) ctx.fill();
+  orb.append(canvas);
+}
+
 class AtmosphereWeatherCard extends HTMLElement {
   constructor() {
     super();
@@ -209,6 +266,9 @@ class AtmosphereWeatherCard extends HTMLElement {
        <strong>H ${this.temp(current.temperature_high)} · L ${this.temp(current.temperature_low)}</strong>
        <div class="summary-feels">Feels like ${this.temp(current.apparent_temperature)}</div></div>`
       : `<div class="current"><h2>${this.error ? 'Weather unavailable' : this.data ? 'Add a location in Settings' : 'Loading weather…'}</h2><p>${escape(this.error)}</p></div>`;
+    if (selected && current.is_day === 0) {
+      drawMoon(this.$('hero').querySelector('.orb'), selected.latitude, Date.now());
+    }
     const metrics = [
       ['Wind',this.wind(current.wind_speed_10m)],
       ['Humidity',this.measure(current.relative_humidity_2m,'%')],
@@ -635,6 +695,10 @@ main[data-theme=trek]{
  main[data-theme=trek] header::after{height:5px}
  main[data-theme=trek] .brand img{top:3px}
 }
+
+.hero .orb.lunar-orb{background:#263244;box-shadow:0 0 26px #adc9ee55;z-index:0;pointer-events:auto}
+.hero .orb.lunar-orb canvas{display:block;position:static;width:100%;height:100%;border-radius:50%}
+.hero :is(.current,.summary){position:relative;z-index:1}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);

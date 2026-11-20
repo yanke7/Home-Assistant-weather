@@ -13,7 +13,7 @@ from .websocket import register
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = [Platform.WEATHER, Platform.SENSOR, Platform.BINARY_SENSOR]
 CARD_PATH = "/atmosphere_weather/atmosphere-weather-card.js"
-CARD_URL = f"{CARD_PATH}?v=0.1.6"
+CARD_URL = f"{CARD_PATH}?v=0.1.7"
 
 
 async def async_setup(hass, config):
