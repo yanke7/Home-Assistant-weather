@@ -1387,7 +1387,8 @@ main[data-theme=trek] header::after{
 main[data-theme=trek] .brand{gap:var(--brand-gap)}
 main[data-theme=trek] .brand img{width:var(--emblem);position:relative;top:6px;z-index:1}
 main[data-theme=trek]{
- grid-template-rows:clamp(87px,13vh,118px) minmax(130px,.9fr) calc(65px + var(--alert-height,0px)) minmax(190px,1.1fr) auto;
+ --header-row:clamp(87px,13vh,118px);
+ grid-template-rows:minmax(var(--header-row),max-content) minmax(130px,.9fr) calc(65px + var(--alert-height,0px)) minmax(190px,1.1fr) auto;
 }
 @container(max-width:700px){
  main[data-theme=trek]{grid-template-rows:61px minmax(110px,.7fr) calc(66px + var(--alert-height,0px)) minmax(185px,1fr) auto}
@@ -1532,7 +1533,7 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 .forecast:has(#temperature-trend:not([hidden])) .periods{grid-template-rows:minmax(0,1fr)}
 .forecast:has(#temperature-trend:not([hidden])) .period .icon{min-height:0}
 @container(min-width:701px){
- #shell:has(#temperature-trend:not([hidden])){grid-template-rows:70px minmax(130px,.8fr) calc(65px + var(--alert-height,0px)) minmax(230px,1.2fr) auto}
+ #shell:has(#temperature-trend:not([hidden])){grid-template-rows:minmax(var(--header-row,70px),max-content) minmax(130px,.8fr) calc(65px + var(--alert-height,0px)) minmax(230px,1.2fr) auto}
 }
 @container(max-width:700px){
  #temperature-trend{height:20px}
