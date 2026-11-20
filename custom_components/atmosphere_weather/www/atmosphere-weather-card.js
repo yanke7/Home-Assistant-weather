@@ -1041,6 +1041,13 @@ class AtmosphereWeatherCard extends HTMLElement {
             player.autoplay = true;
             player.muted = true;
             player.playsInline = true;
+            player.addEventListener('ended', () => {
+              if (!player.isConnected || this.cameraMedia !== media) return;
+              // Public clip URLs stay the same when the provider replaces the file.
+              const latest = new URL(url);
+              latest.searchParams.set('_atmosphere_clip', String(Date.now()));
+              player.src = latest.href;
+            });
           } else player.alt = '';
           player.addEventListener('error',() => { media.textContent = 'Camera unavailable'; },{once:true});
           player.src = url;
