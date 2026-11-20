@@ -49,6 +49,17 @@ Choose a theme under **Atmosphere → Settings → Appearance**. The screenshots
 | **Midnight Drift**<br>[![Atmosphere Weather in Midnight Drift](docs/themes/midnight-drift.jpg)](docs/themes/midnight-drift.jpg) | **Aqua Current**<br>[![Atmosphere Weather in Aqua Current](docs/themes/aqua-current.jpg)](docs/themes/aqua-current.jpg) |
 | **Star Trek**<br>[![Atmosphere Weather in Star Trek](docs/themes/star-trek.jpg)](docs/themes/star-trek.jpg) | **Follow Appearance**<br>[![Atmosphere Weather in Follow Appearance](docs/themes/follow-appearance.jpg)](docs/themes/follow-appearance.jpg) |
 
+### Phone portrait screenshots
+
+The same eight appearance options at a 390 px phone viewport. Click any screenshot to open it full size.
+
+| | | | |
+| --- | --- | --- | --- |
+| **Original**<br>[![Original on a phone in portrait](docs/themes/mobile/original.jpg)](docs/themes/mobile/original.jpg) | **Brushed Steel**<br>[![Brushed Steel on a phone in portrait](docs/themes/mobile/brushed-steel.jpg)](docs/themes/mobile/brushed-steel.jpg) | **Amber Relay**<br>[![Amber Relay on a phone in portrait](docs/themes/mobile/amber-relay.jpg)](docs/themes/mobile/amber-relay.jpg) | **Neon Grid**<br>[![Neon Grid on a phone in portrait](docs/themes/mobile/neon-grid.jpg)](docs/themes/mobile/neon-grid.jpg) |
+| **Midnight Drift**<br>[![Midnight Drift on a phone in portrait](docs/themes/mobile/midnight-drift.jpg)](docs/themes/mobile/midnight-drift.jpg) | **Aqua Current**<br>[![Aqua Current on a phone in portrait](docs/themes/mobile/aqua-current.jpg)](docs/themes/mobile/aqua-current.jpg) | **Star Trek**<br>[![Star Trek on a phone in portrait](docs/themes/mobile/star-trek.jpg)](docs/themes/mobile/star-trek.jpg) | **Follow Appearance**<br>[![Follow Appearance on a phone in portrait](docs/themes/mobile/follow-appearance.jpg)](docs/themes/mobile/follow-appearance.jpg) |
+
+[View the portrait Radar tab with the wind rose open](docs/themes/mobile/radar.jpg).
+
 ## Automations
 
 Find the device for your location under the integration. Its native weather entity supports `weather.get_forecasts` for hourly and daily forecasts. Separate sensors expose temperature, feels-like temperature, humidity, pressure, wind speed, direction and gusts, precipitation, cloud cover, forecast highs and lows, upcoming sunrise and sunset, and the last successful update. UV index and visibility represent the next forecast hour.
