@@ -1053,6 +1053,13 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 #settings-content h3{font-size:1.08em;margin:0 0 9px;color:var(--accent)}
 #settings-content p{margin:8px 0 0;line-height:1.4}
 
+@container(min-width:800px){
+ #weather-details #reading-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;font-size:13px}
+ #weather-details #reading-list>div{padding:0;line-height:1.15}
+ #weather-details #reading-context{margin:2px 0 4px}
+ #weather-details #reading-list>div:only-child{grid-column:1/-1}
+}
+
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
 window.customCards = window.customCards || [];
