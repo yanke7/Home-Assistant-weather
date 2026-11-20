@@ -206,6 +206,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     window.removeEventListener('resize', this.fitViewport);
     window.visualViewport?.removeEventListener('resize', this.fitViewport);
     this.request++;
+    this.radarGesture = null;
     this.sky?.dispose();
     this.sky = null;
   }
@@ -712,20 +713,24 @@ class AtmosphereWeatherCard extends HTMLElement {
       host.innerHTML = `<p class="empty">${this.data && !this.data.radar ? 'Radar disabled in integration settings' : 'Recent radar unavailable'}</p>`;
       return;
     }
+    if (this.radarGesture?.location === location.id) return;
+    const latitude = Math.max(-85,Math.min(85,location.latitude)) * Math.PI / 180;
+    const home = {x:(location.longitude + 180)/360,y:(1-Math.asinh(Math.tan(latitude))/Math.PI)/2};
+    if (this.radarCenter?.location !== location.id) this.radarCenter = {...home,location:location.id};
+    const center = this.radarCenter;
     const zoom = this.radarZoom ?? 6;
-    const signature = `${location.id}:${frame.time}:${this.frames.length}:${zoom}:${host.clientWidth}:${host.clientHeight}`;
+    const signature = `${location.id}:${frame.time}:${this.frames.length}:${zoom}:${center.x}:${center.y}:${host.clientWidth}:${host.clientHeight}`;
     if (host.firstElementChild?.dataset.signature === signature) {
       this.drawWindRose();
       return;
     }
-    const latitude = Math.max(-85,Math.min(85,location.latitude)) * Math.PI / 180;
     const layers = [];
     const addTiles = (sourceZoom,overlay) => {
       const size = 2 ** sourceZoom;
       // At closer views, scale the existing radar tiles in their native map projection.
       const tileSize = 256 * 2 ** (zoom-sourceZoom);
-      const x = (location.longitude + 180) / 360 * size;
-      const y = (1 - Math.asinh(Math.tan(latitude)) / Math.PI) / 2 * size;
+      const x = center.x*size;
+      const y = center.y*size;
       const halfWidth = (host.clientWidth || 512)/(2*tileSize);
       const halfHeight = (host.clientHeight || 384)/(2*tileSize);
       for (let column = Math.floor(x-halfWidth); column <= Math.floor(x+halfWidth); column++) {
@@ -741,9 +746,12 @@ class AtmosphereWeatherCard extends HTMLElement {
     };
     if (this.mapTileToken) addTiles(zoom,false);
     addTiles(Math.min(zoom,7),true);
+    const worldPixels = 256 * 2 ** zoom;
+    const homeX = ((home.x-center.x+1.5)%1-.5)*worldPixels;
+    const homeY = (home.y-center.y)*worldPixels;
     host.innerHTML = `<div class="radar-content" data-signature="${signature}">
       <div class="radar-map-area">
-        <div class="map" role="img" aria-label="Recent observed precipitation near ${escape(location.name)}">${layers.join('')}<span class="pin"></span></div>
+        <div class="map" role="img" aria-label="Recent observed precipitation near ${escape(location.name)}"><div class="radar-plane">${layers.join('')}<span class="pin" style="left:calc(50% + ${homeX}px);top:calc(50% + ${homeY}px)"></span></div></div>
         <aside class="wind-rose" hidden><strong>Wind · next 24 hours</strong>
           <canvas width="176" height="176" role="img" aria-label="Forecast wind rose"></canvas>
           <small class="wind-rose-key"></small>
@@ -752,6 +760,7 @@ class AtmosphereWeatherCard extends HTMLElement {
           <button type="button" id="wind-rose-toggle" aria-pressed="false">Wind rose</button>
           <button type="button" id="radar-out" aria-label="Zoom out radar" ${zoom <= 3 ? 'disabled' : ''}>−</button>
           <button type="button" id="radar-in" aria-label="Zoom in radar" ${zoom >= 10 ? 'disabled' : ''}>+</button>
+          <button type="button" id="radar-center" aria-label="Recenter radar" title="Recenter radar">⌖</button>
         </div>
       </div>
       <div class="radar-controls"><input type="range" id="radar-time" min="0" max="${this.frames.length - 1}" value="${this.frameIndex}" aria-label="Observed radar time">
@@ -777,6 +786,12 @@ class AtmosphereWeatherCard extends HTMLElement {
       const control = this.$(id);
       (control.disabled ? this.$(change > 0 ? 'radar-out' : 'radar-in') : control).focus({preventScroll:true});
     };
+    this.bindRadarGestures(host.querySelector('.map'),center,zoom);
+    this.$('radar-center').onclick = () => {
+      this.radarCenter = {...home,location:location.id};
+      this.renderRadar();
+      this.$('radar-center').focus({preventScroll:true});
+    };
     this.$('radar-out').onclick = () => zoomRadar(-1,'radar-out');
     this.$('radar-in').onclick = () => zoomRadar(1,'radar-in');
     this.$('wind-rose-toggle').onclick = () => {
@@ -790,6 +805,61 @@ class AtmosphereWeatherCard extends HTMLElement {
       this.renderRadar();
       this.$('radar-time').focus();
     };
+  }
+
+  bindRadarGestures(map,center,zoom) {
+    const pointers = new Map();
+    const plane = map.querySelector('.radar-plane');
+    let start, movement;
+    const measure = () => {
+      const [first,second] = pointers.values();
+      if (!second) return {...first,distance:0};
+      return {x:(first.x+second.x)/2,y:(first.y+second.y)/2,
+        distance:Math.hypot(first.x-second.x,first.y-second.y)};
+    };
+    map.onpointerdown = event => {
+      if (event.button !== 0 || pointers.size >= 2) return;
+      pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+      map.setPointerCapture(event.pointerId);
+      start = measure();
+      movement = null;
+      plane.style.transform = '';
+      this.radarGesture = {location:center.location};
+      map.classList.add('dragging');
+    };
+    map.onpointermove = event => {
+      if (!pointers.has(event.pointerId)) return;
+      pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+      const point = measure();
+      const dx = point.x-start.x, dy = point.y-start.y;
+      const ratio = start.distance > 0 ? Math.max(.25,Math.min(4,point.distance/start.distance)) : 1;
+      movement = {dx,dy,ratio};
+      const rect = map.getBoundingClientRect();
+      plane.style.transformOrigin = `${start.x-rect.left}px ${start.y-rect.top}px`;
+      plane.style.transform = `translate(${dx}px,${dy}px) scale(${ratio})`;
+    };
+    const finish = (event,commit) => {
+      if (!pointers.has(event.pointerId)) return;
+      pointers.clear();
+      plane.style.transform = '';
+      map.classList.remove('dragging');
+      if (this.radarGesture?.location === center.location) this.radarGesture = null;
+      if (!commit || !movement || this.data?.selected?.id !== center.location) return;
+
+      const nextZoom = Math.min(10,Math.max(3,zoom + Math.round(Math.log2(movement.ratio))));
+      const bounds = map.getBoundingClientRect();
+      const anchorX = start.x-bounds.left-bounds.width/2;
+      const anchorY = start.y-bounds.top-bounds.height/2;
+      const previousScale = 256*2**zoom;
+      const nextScale = 256*2**nextZoom;
+      const x = center.x + anchorX/previousScale - (anchorX+movement.dx)/nextScale;
+      const y = center.y + anchorY/previousScale - (anchorY+movement.dy)/nextScale;
+      this.radarCenter = {location:center.location,x:(x%1+1)%1,y:Math.max(0,Math.min(1,y))};
+      this.radarZoom = nextZoom;
+      this.renderRadar();
+    };
+    map.onpointerup = event => finish(event,true);
+    map.onpointercancel = map.onlostpointercapture = event => finish(event,false);
   }
 
   drawWindRose() {
@@ -1359,6 +1429,10 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 .wind-rose-key span{white-space:nowrap}
 .wind-rose-key i{display:inline-block;width:6px;height:6px;margin-right:2px}
 @container(max-width:700px){.radar-tools button{min-width:40px;min-height:40px}.wind-rose canvas{width:min(100%,122px,16vh)}}
+
+.radar-map-area .map{touch-action:none;cursor:grab;user-select:none}
+.radar-map-area .map.dragging{cursor:grabbing}
+.radar-plane{position:absolute;inset:0;pointer-events:none}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
