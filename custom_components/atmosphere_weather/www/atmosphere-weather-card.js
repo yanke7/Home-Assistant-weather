@@ -1,4 +1,4 @@
-import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.38';
+import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.39';
 import {languages,translate} from './translations.js?v=0.1.34';
 
 const themes = [
@@ -93,6 +93,22 @@ function lunarSurface(ctx, reflected, lit) {
     ctx.stroke();
   }
   ctx.restore();
+}
+
+function positionSun(orb, days, now) {
+  for (const day of days || []) {
+    const rise = Date.parse(day.sunrise);
+    const set = Date.parse(day.sunset);
+    if (!(rise < set && rise <= now && now <= set)) continue;
+    const progress = (now - rise) / (set - rise);
+    const altitude = Math.sin(Math.PI * progress);
+    // Align the disk's lower edge near the horizon and its upper edge at midday.
+    orb.style.left = (18 + 64 * progress) + '%';
+    orb.style.right = 'auto';
+    orb.style.top = (96 - 90 * altitude) + '%';
+    orb.style.translate = '-50% ' + (-100 * (1 - altitude)) + '%';
+    return;
+  }
 }
 
 function drawMoon(orb, latitude, now) {
@@ -552,6 +568,8 @@ ${thermostatCSS}</style><main id="shell">
     this.renderLocationControls();
     if (selected && current.is_day === 0) {
       drawMoon(this.$('hero').querySelector('.orb'), selected.latitude, Date.now());
+    } else if (selected && current.is_day === 1) {
+      positionSun(this.$('hero').querySelector('.orb'), weather?.daily, Date.now());
     }
     const direction = this.compass(current.wind_direction_10m,current.wind_speed_10m);
     const metrics = [
