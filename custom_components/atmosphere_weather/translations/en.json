@@ -47,6 +47,9 @@
         "invalid_location": "Enter a name, valid coordinates and IANA time zone.",
         "duplicate_location": "This location is already saved.",
         "location_limit": "Up to 20 locations can be saved."
+      },
+      "initiate_flow": {
+        "user": "Add location"
       }
     }
   },
