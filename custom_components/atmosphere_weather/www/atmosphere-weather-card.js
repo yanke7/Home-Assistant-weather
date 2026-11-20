@@ -1,3 +1,4 @@
+import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.36';
 import {languages,translate} from './translations.js?v=0.1.34';
 
 const themes = [
@@ -314,7 +315,8 @@ class AtmosphereWeatherCard extends HTMLElement {
 
   build() {
     if (this.$('shell')) return;
-    this.shadowRoot.innerHTML = `<style>${CSS}</style><main id="shell">
+    this.shadowRoot.innerHTML = `<style>${CSS}
+${thermostatCSS}</style><main id="shell">
       <header><div class="brand"><span aria-hidden="true">◒</span><strong>Atmosphere</strong></div>
         <div class="actions"><select id="location" aria-label="Weather location"></select>
           <button id="settings" aria-label="Settings" title="Settings"><span class="gear">⚙</span><span class="trek-settings" data-label="Settings">Settings</span></button><div id="trek-time"></div></div></header>
@@ -324,6 +326,7 @@ class AtmosphereWeatherCard extends HTMLElement {
         </section>
         <button id="camera-preview" type="button" aria-label="Open camera full screen" aria-haspopup="dialog" hidden></button>
       </div>
+      ${thermostatMarkup}
       <dialog id="camera-fullscreen" aria-label="Full-screen camera">
         <button id="camera-close" type="button" aria-label="Close full-screen camera"></button>
       </dialog>
@@ -402,13 +405,10 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.$('camera-fullscreen').onclose = () => {
       if (this.cameraMedia) this.$('camera-preview').append(this.cameraMedia);
     };
-    this.$('thermostat').onclick = event => {
-      const entityId = this.data?.selected?.thermostat_entity;
-      if (this.data?.selected?.is_home && entityId) {
-        event.currentTarget.dispatchEvent(new CustomEvent('hass-more-info', {
-          detail:{entityId}, bubbles:true, composed:true,
-        }));
-      }
+    this.thermostatControls = new ThermostatControls(this);
+    this.$('thermostat').onclick = () => {
+      const location = this.data?.selected;
+      if (location?.is_home && location.thermostat_entity) this.thermostatControls.open(location.thermostat_entity);
     };
     this.$('close').onclick = () => this.$('dialog').close();
     this.$('location').onchange = event => {
@@ -1056,6 +1056,7 @@ class AtmosphereWeatherCard extends HTMLElement {
   renderLocationControls() {
     const location = this.data?.selected;
     const states = this._hass?.states;
+    this.thermostatControls?.update();
     const thermostat = this.$('thermostat');
     const climate = location?.is_home && states?.[location.thermostat_entity];
     thermostat.hidden = !climate;
