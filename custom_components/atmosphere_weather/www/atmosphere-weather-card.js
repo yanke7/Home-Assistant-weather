@@ -16,6 +16,15 @@ function loadTrekFont() {
     .load().then(font => document.fonts.add(font)).catch(() => {});
 }
 const trekLogo = new URL('./trek-logo.jpg?v=0.1.3', import.meta.url).href;
+const partlyCloudyNightIcon = `<svg width="1em" height="1em" viewBox="0 0 64 64" focusable="false">
+  <path fill="#b6ccf5" d="M40 5a17 17 0 1 0 18 24A18 18 0 0 1 40 5Z"/>
+  <path fill="#e0e9f2" d="M16 55a10 10 0 0 1-1-20 14 14 0 0 1 26 3 9 9 0 1 1 3 17Z"/>
+</svg>`;
+function forecastIcon(item) {
+  return item.condition === 'partlycloudy' && item.is_day === 0
+    ? partlyCloudyNightIcon
+    : icons[item.condition] || '◌';
+}
 const icons = {sunny:'☀','clear-night':'☾',partlycloudy:'⛅',cloudy:'☁',rainy:'☂',pouring:'☂',
   snowy:'❄','snowy-rainy':'❄',fog:'≋','lightning-rainy':'ϟ'};
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char =>
@@ -488,7 +497,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     const periods = (weather?.[mode] || []).slice(0,mode === 'daily' ? 7 : 8);
     this.$('periods').innerHTML = periods.length ? `<div class="periods ${mode}">${periods.map((item,index) => `
       <button type="button" class="period period-reading" data-reading="${mode}" data-period="${index}" aria-label="${escape(this.date(item.datetime,{weekday:'long',month:'short',day:'numeric',...(mode === 'hourly' ? {hour:'numeric',minute:'2-digit'} : {})}))} weather details"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : {hour:'numeric'})}</small>
-      <span class="icon" role="img" aria-label="${escape(item.condition || 'Unknown condition')}"><i aria-hidden="true">${icons[item.condition] || '◌'}</i></span>
+      <span class="icon" role="img" aria-label="${escape(item.condition === 'partlycloudy' ? 'Partly cloudy' : item.condition || 'Unknown condition')}"><i aria-hidden="true">${forecastIcon(item)}</i></span>
       <strong>${this.temp(item.native_temperature)}</strong>
       <span>${mode === 'daily' ? 'Low ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed) + ' ' + this.compass(item.wind_bearing,item.native_wind_speed)}</span>
       <span class="chance"> ${this.measure(item.precipitation_probability,'%')}${this.accumulation(item) ? `<span class="accumulation">${escape(this.accumulation(item))}</span>` : ''}</span></button>`).join('')}</div>`
