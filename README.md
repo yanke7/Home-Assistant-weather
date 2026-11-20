@@ -38,7 +38,7 @@ Use **Freezing** for temperatures at or below 0 °C, **Daylight** for the provid
 
 Home Assistant sends each location's coordinates and time zone to [Open-Meteo](https://open-meteo.com/en/docs) on a 15-minute schedule. City and postal searches use its geocoding API. The default endpoint is for personal, non-commercial use. An optional commercial Open-Meteo key can be set in the integration options. [Open-Meteo pricing](https://open-meteo.com/en/pricing)
 
-The bundled radar shows recent observed frames and uses [RainViewer](https://www.rainviewer.com/api/transition-faq.html) and [OpenStreetMap](https://www.openstreetmap.org/copyright) tiles. Opening radar sends map tile requests for the selected area to those providers. Coverage and freshness vary. Disable radar in integration options if preferred. Public radar is also disabled when a commercial forecast key is configured.
+The bundled radar shows recent observed frames and uses [RainViewer](https://www.rainviewer.com/api/transition-faq.html) and [OpenStreetMap](https://www.openstreetmap.org/copyright) tiles. Home Assistant serves the OpenStreetMap base tiles through its built-in Map tiles service. The browser requests the precipitation overlay from RainViewer. Coverage and freshness vary. Disable radar in integration options if preferred. Public radar is also disabled when a commercial forecast key is configured.
 
 ## Moving from the old Weather card
 

@@ -536,9 +536,13 @@ class AtmosphereWeatherCard extends HTMLElement {
     if (this.radarKey === key) return;
     this.radarKey = key;
     try {
-      const frames = await this.call('radar',{location:location.id});
+      const [frames, baseMap] = await Promise.all([
+        this.call('radar',{location:location.id}),
+        this._hass.callWS({type:'map_tiles/access_token'}).catch(() => null),
+      ]);
       if (this.radarKey !== key) return;
       this.frames = frames;
+      this.mapTileToken = baseMap?.token || null;
       this.frameIndex = Math.max(0,frames.length - 1);
     } catch {
       if (this.radarKey !== key) return;
@@ -567,9 +571,10 @@ class AtmosphereWeatherCard extends HTMLElement {
       for (let row = Math.max(0,Math.floor(y)-1); row <= Math.min(size-1,Math.floor(y)+1); row++) {
         const wrapped = (column + size) % size;
         const style = `left:calc(50% + ${Math.round((column-x)*256)}px);top:calc(50% + ${Math.round((row-y)*256)}px)`;
-        const base = `https://tile.openstreetmap.org/${zoom}/${wrapped}/${row}.png`;
+        const base = `/api/map_tiles/raster/${zoom}/${wrapped}/${row}.png?token=${encodeURIComponent(this.mapTileToken || '')}`;
         const url = `https://tilecache.rainviewer.com${frame.path}/256/${zoom}/${wrapped}/${row}/2/1_1.png`;
-        tiles.push(`<img alt="" src="${base}" style="${style}"><img class="overlay" alt="" src="${escape(url)}" style="${style}">`);
+        const background = this.mapTileToken ? `<img class="base-tile" alt="" src="${base}" style="${style}">` : '';
+        tiles.push(`${background}<img class="overlay" referrerpolicy="no-referrer" alt="" src="${escape(url)}" style="${style}">`);
       }
     }
     host.innerHTML = `<div class="radar-content" data-signature="${signature}">
@@ -577,11 +582,19 @@ class AtmosphereWeatherCard extends HTMLElement {
       <div class="radar-controls"><input type="range" id="radar-time" min="0" max="${this.frames.length - 1}" value="${this.frameIndex}" aria-label="Observed radar time">
       <span>${this.time(frame.time * 1000)}</span></div>
       <small><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ·
-      <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a></small></div>`;
-    host.querySelectorAll('.overlay').forEach(tile => tile.onerror = () => {
-      tile.remove();
-      host.querySelector('.map')?.setAttribute('aria-label','Radar tiles incomplete');
-      host.querySelector('.radar-controls span').textContent = 'Tiles incomplete';
+      <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> <span class="radar-tile-status" role="status"></span></small></div>`;
+    const status = host.querySelector('.radar-tile-status');
+    const failures = new Set(this.mapTileToken ? [] : ['Base map unavailable']);
+    const updateStatus = () => { status.textContent = [...failures].join(' · '); };
+    updateStatus();
+    host.querySelectorAll('.base-tile,.overlay').forEach(tile => {
+      const handleFailure = () => {
+        failures.add(tile.classList.contains('overlay') ? 'Radar tiles incomplete' : 'Base map tiles incomplete');
+        tile.remove();
+        updateStatus();
+      };
+      tile.onerror = handleFailure;
+      if (tile.complete && !tile.naturalWidth) handleFailure();
     });
     this.$('radar-time').onchange = event => {
       this.frameIndex = Number(event.target.value);
@@ -736,7 +749,7 @@ h2{margin:0;font-size:1.08em}.tabs{display:flex;gap:5px}.tabs button{font-size:.
 .periods.daily{grid-template-columns:repeat(7,minmax(0,1fr))}.period{display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;gap:4px;text-align:center;min-width:0}
 .period .icon{color:var(--accent);font-size:1.75em}.period strong{font-size:1.45em}.empty{text-align:center;margin-top:24px}
 .radar-content{height:100%;display:grid;grid-template-rows:minmax(55px,1fr) auto auto;gap:4px}.map{position:relative;overflow:hidden;border-radius:8px;background:#263947}
-.map img{position:absolute;width:256px;height:256px;max-width:none}.map .overlay{opacity:.8}.pin{position:absolute;top:50%;left:50%;translate:-50% -50%;background:#ffcc66;width:10px;height:10px;border:2px solid #403319;border-radius:50%;box-shadow:0 0 0 4px #ffcc6666}
+.radar-tile-status:not(:empty)::before{content:" · "}.map img{position:absolute;width:256px;height:256px;max-width:none}.map .overlay{opacity:.8}.pin{position:absolute;top:50%;left:50%;translate:-50% -50%;background:#ffcc66;width:10px;height:10px;border:2px solid #403319;border-radius:50%;box-shadow:0 0 0 4px #ffcc6666}
 .radar-controls input{width:75%;padding:0;accent-color:var(--accent)}.radar-controls span{font-size:.75em}
 footer a,.radar-content a{color:inherit}footer{gap:8px}
 dialog{width:min(570px,calc(100vw - 24px));max-height:calc(100dvh - 28px);overflow:auto;

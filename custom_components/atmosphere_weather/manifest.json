@@ -3,12 +3,12 @@
   "name": "Atmosphere Weather",
   "codeowners": ["@yanke7"],
   "config_flow": true,
-  "dependencies": ["frontend", "http", "websocket_api"],
+  "dependencies": ["frontend", "http", "map_tiles", "websocket_api"],
   "documentation": "https://github.com/yanke7/Home-Assistant-weather",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/yanke7/Home-Assistant-weather/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.1.13"
+  "version": "0.1.14"
 }
