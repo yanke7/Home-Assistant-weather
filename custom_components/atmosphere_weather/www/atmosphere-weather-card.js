@@ -1,4 +1,4 @@
-import {languages,translate} from './translations.js?v=0.1.32';
+import {languages,translate} from './translations.js?v=0.1.33';
 
 const themes = [
   ['original','Original','#101923','#17232e','#eac68b'],
