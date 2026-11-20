@@ -164,6 +164,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     const changed = this._hass?.user?.id !== value.user?.id;
     this._hass = value;
     if (changed) this.refresh();
+    if (this.$('camera-preview')) this.renderLocationControls();
   }
   connectedCallback() {
     this.build();
@@ -298,7 +299,15 @@ class AtmosphereWeatherCard extends HTMLElement {
       <header><div class="brand"><span aria-hidden="true">◒</span><strong>Atmosphere</strong></div>
         <div class="actions"><select id="location" aria-label="Weather location"></select>
           <button id="settings" aria-label="Settings" title="Settings"><span class="gear">⚙</span><span class="trek-settings">Settings</span></button><div id="trek-time"></div></div></header>
-      <section id="hero" class="hero"><div id="sky-content"></div></section>
+      <div id="hero-layout">
+        <section id="hero" class="hero"><div id="sky-content"></div>
+          <button id="thermostat" type="button" aria-haspopup="dialog" hidden></button>
+        </section>
+        <button id="camera-preview" type="button" aria-label="Open camera full screen" aria-haspopup="dialog" hidden></button>
+      </div>
+      <dialog id="camera-fullscreen" aria-label="Full-screen camera">
+        <button id="camera-close" type="button" aria-label="Close full-screen camera"></button>
+      </dialog>
       <dialog id="weather-details" class="reading-dialog" aria-labelledby="reading-title">
         <div class="heading"><h2 id="reading-title"></h2><div class="actions">
           <button id="reading-gear" aria-label="Customize weather readings" title="Customize weather readings">⚙</button>
@@ -354,6 +363,23 @@ class AtmosphereWeatherCard extends HTMLElement {
       this.write('readings.' + this.reading.kind,'[]');
       this.renderReadings();
       this.openReadingSettings();
+    };
+    this.$('camera-preview').onclick = () => {
+      const dialog = this.$('camera-fullscreen');
+      this.$('camera-close').append(this.cameraMedia);
+      dialog.showModal();
+    };
+    this.$('camera-close').onclick = () => this.$('camera-fullscreen').close();
+    this.$('camera-fullscreen').onclose = () => {
+      if (this.cameraMedia) this.$('camera-preview').append(this.cameraMedia);
+    };
+    this.$('thermostat').onclick = event => {
+      const entityId = this.data?.selected?.thermostat_entity;
+      if (this.data?.selected?.is_home && entityId) {
+        event.currentTarget.dispatchEvent(new CustomEvent('hass-more-info', {
+          detail:{entityId}, bubbles:true, composed:true,
+        }));
+      }
     };
     this.$('close').onclick = () => this.$('dialog').close();
     this.$('location').onchange = event => {
@@ -479,6 +505,7 @@ class AtmosphereWeatherCard extends HTMLElement {
        <strong>H ${this.temp(current.temperature_high)} · L ${this.temp(current.temperature_low)}</strong>
        <div class="summary-feels">Feels like ${this.temp(current.apparent_temperature)}</div></div>`
       : `<div class="current"><h2>${this.error ? 'Weather unavailable' : this.data ? 'Add a location in Settings' : 'Loading weather…'}</h2><p>${escape(this.error)}</p></div>`;
+    this.renderLocationControls();
     if (selected && current.is_day === 0) {
       drawMoon(this.$('hero').querySelector('.orb'), selected.latitude, Date.now());
     }
@@ -978,6 +1005,85 @@ class AtmosphereWeatherCard extends HTMLElement {
     if (!locations.length) this.locationForm();
   }
 
+  renderLocationControls() {
+    const location = this.data?.selected;
+    const states = this._hass?.states;
+    const thermostat = this.$('thermostat');
+    const climate = location?.is_home && states?.[location.thermostat_entity];
+    thermostat.hidden = !climate;
+    if (climate) {
+      const temperature = climate.attributes.current_temperature ?? climate.attributes.temperature;
+      const unit = this._hass.config?.unit_system?.temperature || '';
+      const label = temperature == null ? 'Thermostat' : `Thermostat · ${temperature}${unit}`;
+      if (thermostat.textContent !== label) thermostat.textContent = label;
+    }
+    const camera = states?.[location?.camera_entity];
+    const url = location?.camera_url;
+    const preview = this.$('camera-preview');
+    const cameraKey = JSON.stringify([location?.id,camera?.entity_id,url,location?.camera_video]);
+    if (cameraKey !== this.cameraKey) {
+      this.cameraKey = cameraKey;
+      this.$('camera-fullscreen').close();
+      this.cameraMedia?.remove();
+      this.cameraMedia = null;
+      preview.hidden = !camera && !url;
+      this.$('hero-layout').classList.toggle('with-camera',!preview.hidden);
+      if (camera || url) {
+        const media = document.createElement('span');
+        media.className = 'camera-media';
+        preview.append(media);
+        this.cameraMedia = media;
+        if (camera) this.loadEntityCamera(media,camera);
+        else {
+          const player = document.createElement(location.camera_video ? 'video' : 'img');
+          player.referrerPolicy = 'no-referrer';
+          if (location.camera_video) {
+            player.autoplay = true;
+            player.muted = true;
+            player.playsInline = true;
+          } else player.alt = '';
+          player.addEventListener('error',() => { media.textContent = 'Camera unavailable'; },{once:true});
+          player.src = url;
+          media.append(player);
+        }
+      }
+    }
+    if (this.cameraCard && this.cameraMedia?.contains(this.cameraCard)) this.cameraCard.hass = this._hass;
+  }
+
+  async loadEntityCamera(media,camera) {
+    try {
+      const helpers = await window.loadCardHelpers();
+      if (this.cameraMedia !== media) return;
+      const card = helpers.createCardElement({
+        type:'picture-entity', entity:camera.entity_id, camera_view:'live',
+        show_name:false, show_state:false, tap_action:{action:'none'}, hold_action:{action:'none'},
+      });
+      this.cameraCard = card;
+      card.hass = this._hass;
+      media.append(card);
+    } catch {
+      if (this.cameraMedia !== media) return;
+      const image = document.createElement('img');
+      image.alt = '';
+      const token = camera.attributes.access_token;
+      if (!token) {
+        media.textContent = 'Camera unavailable';
+        return;
+      }
+      image.addEventListener('error',() => { media.textContent = 'Camera unavailable'; },{once:true});
+      image.src = `/api/camera_proxy_stream/${encodeURIComponent(camera.entity_id)}?token=${encodeURIComponent(token)}`;
+      media.append(image);
+    }
+  }
+
+  entityOptions(domain,selected) {
+    const entities = Object.values(this._hass?.states || {}).filter(item => item.entity_id.startsWith(domain + '.'));
+    entities.sort((a,b) => (a.attributes.friendly_name || a.entity_id).localeCompare(b.attributes.friendly_name || b.entity_id));
+    return '<option value="">None</option>' + entities.map(item =>
+      `<option value="${escape(item.entity_id)}" ${item.entity_id === selected ? 'selected' : ''}>${escape(item.attributes.friendly_name || item.entity_id)} (${escape(item.entity_id)})</option>`).join('');
+  }
+
   locationForm(location) {
     const box = this.$('editor');
     box.innerHTML = `
@@ -989,6 +1095,13 @@ class AtmosphereWeatherCard extends HTMLElement {
         <label>Longitude <input name="longitude" type="number" step="any" min="-180" max="180" required value="${escape(location?.longitude)}"></label>
         </div>
         <label>Time zone <input name="timezone" required placeholder="Europe/Paris" value="${escape(location?.timezone || this._hass?.config?.time_zone)}"></label>
+        <label>Home Assistant camera <select name="camera_entity">${this.entityOptions('camera',location?.camera_entity)}</select></label>
+        <label>Or direct camera URL <input name="camera_url" type="url" maxlength="2048" placeholder="https://…" value="${escape(location?.camera_url)}"></label>
+        <label>Direct camera format <select name="camera_video">
+          <option value="false">MJPEG or image</option>
+          <option value="true" ${location?.camera_video ? 'selected' : ''}>Browser video (MP4 or native HLS)</option>
+        </select></label>
+        ${location?.is_home ? `<label>Home thermostat <select name="thermostat_entity">${this.entityOptions('climate',location.thermostat_entity)}</select></label>` : ''}
         <div class="actions"><button>Save location</button>${location ? '<button id="remove" type="button">Remove</button>' : ''}</div>
       </form>`;
     const form = this.$('save');
@@ -1033,6 +1146,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     form.onsubmit = event => {
       event.preventDefault();
       const values = Object.fromEntries(new FormData(form));
+      values.camera_video = values.camera_video === 'true';
       if (location) values.location = location.id;
       mutate('save_location',values);
     };
@@ -1442,6 +1556,32 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 .radar-map-area .map{touch-action:none;cursor:grab;user-select:none}
 .radar-map-area .map.dragging{cursor:grabbing}
 .radar-plane{position:absolute;inset:0;pointer-events:none}
+
+#hero-layout{position:relative;display:grid;min-height:0;min-width:0}
+#hero-layout.with-camera{grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:10px}
+#camera-preview[hidden],#thermostat[hidden]{display:none}
+#camera-preview,.camera-media{display:grid;place-items:center;min-width:0;min-height:0;overflow:hidden}
+#camera-preview{position:relative;padding:0;background:#0b1017;border-radius:14px}
+.camera-media{position:absolute;inset:0;pointer-events:none;color:#eef5fa;text-align:center}
+.camera-media :is(img,video){width:100%;height:100%;min-height:0;object-fit:cover}
+.camera-media > :not(img,video){width:100%;min-width:0}
+#camera-fullscreen{position:fixed;inset:0;margin:0;width:100%;height:100%;max-width:none;max-height:none;padding:0;border:0;border-radius:0;background:#000}
+#camera-close{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;background:#000}
+#camera-close .camera-media :is(img,video){object-fit:contain}
+#camera-close::after{content:'×';position:absolute;right:12px;top:max(12px,env(safe-area-inset-top));width:44px;line-height:44px;border-radius:50%;background:#121822dd;color:white;font-size:28px}
+#thermostat{position:absolute;z-index:2;left:18px;bottom:12px;min-height:34px;padding:5px 9px;background:var(--surface);color:var(--ink)}
+.hero:has(#thermostat:not([hidden])){padding-bottom:48px}
+@container(max-width:850px){
+ .hero.has-briefing #thermostat{bottom:30px}
+ .hero.has-briefing:has(#thermostat:not([hidden])){padding-bottom:64px}
+}
+@container(max-width:700px){
+ #hero-layout.with-camera{grid-template-columns:minmax(0,1fr);gap:0}
+ #hero-layout.with-camera .hero{padding-bottom:clamp(58px,19cqw,108px)}
+ #hero-layout.with-camera .weather-briefing{right:40%;left:15px}
+ #hero-layout.with-camera .hero.has-briefing #thermostat{bottom:clamp(35px,9cqw,49px)}
+ #camera-preview{position:absolute;z-index:2;right:7px;bottom:7px;width:33%;height:clamp(54px,17cqw,102px);border-radius:9px}
+}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);

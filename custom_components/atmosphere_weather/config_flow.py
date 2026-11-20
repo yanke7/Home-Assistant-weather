@@ -101,7 +101,9 @@ class LocationFlow(config_entries.ConfigSubentryFlow):
                 elif existing is None and len(entry.subentries) >= LIMIT:
                     errors["base"] = "location_limit"
                 elif existing is not None:
-                    return self.async_update_and_abort(entry, existing, title=data["name"], data=data, unique_id=key)
+                    return self.async_update_and_abort(
+                        entry, existing, title=data["name"], data={**existing.data, **data}, unique_id=key,
+                    )
                 else:
                     return self.async_create_entry(title=data["name"], data=data, unique_id=key)
         defaults = existing.data if existing else home(self.hass)

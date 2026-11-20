@@ -2,6 +2,7 @@
 from types import MappingProxyType
 import re
 import time
+from urllib.parse import urlsplit
 
 import aiohttp
 import voluptuous as vol
@@ -10,7 +11,7 @@ from homeassistant.config_entries import ConfigSubentry
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .config_flow import LIMIT, clean_location, location_key
+from .config_flow import LIMIT, clean_location, home, location_key
 from .coordinator import DOMAIN
 
 PREFIX = DOMAIN + "/"
@@ -33,6 +34,36 @@ def location_entity(hass, connection, location_id):
     return None
 
 
+def home_location_id(hass, entry):
+    locations = entry.subentries.values()
+    named = next((item for item in locations if item.title.casefold() == "home"), None)
+    if named:
+        return named.subentry_id
+    key = location_key(home(hass))
+    return next((item.subentry_id for item in locations if item.unique_id == key), None)
+
+
+def location_controls(hass, msg, is_home):
+    camera = msg.get("camera_entity", "").strip()
+    url = msg.get("camera_url", "").strip()
+    thermostat = msg.get("thermostat_entity", "").strip() if is_home else ""
+    if camera and url:
+        raise ValueError("Choose a Home Assistant camera or a direct camera URL.")
+    for entity, domain in ((camera, "camera"), (thermostat, "climate")):
+        if entity and (not entity.startswith(domain + ".") or hass.states.get(entity) is None):
+            raise ValueError(f"Choose an existing {domain} entity.")
+    if url:
+        parsed = urlsplit(url)
+        if (len(url) > 2048 or parsed.scheme not in ("http", "https") or not parsed.hostname
+                or parsed.username is not None or parsed.password is not None):
+            raise ValueError("Enter a direct HTTP or HTTPS camera URL without embedded credentials.")
+    return {key: value for key, value in {
+        "camera_entity": camera, "camera_url": url,
+        "camera_video": bool(msg.get("camera_video")) if url else False,
+        "thermostat_entity": thermostat,
+    }.items() if value}
+
+
 @ws.websocket_command({vol.Required("type"): PREFIX + "snapshot", vol.Optional("location"): str})
 @ws.async_response
 async def snapshot(hass, connection, msg):
@@ -42,10 +73,17 @@ async def snapshot(hass, connection, msg):
         return
     locations = []
     allowed = {}
+    home_id = home_location_id(hass, entry)
     for location in entry.subentries.values():
         entity = location_entity(hass, connection, location.subentry_id)
         if entity or connection.user.is_admin:
             item = {"id": location.subentry_id, **location.data, "entity": entity}
+            item["is_home"] = location.subentry_id == home_id
+            for field in ("camera_entity", "thermostat_entity"):
+                if item.get(field) and not connection.user.permissions.check_entity(item[field], "read"):
+                    item.pop(field)
+            if not item["is_home"]:
+                item.pop("thermostat_entity", None)
             locations.append(item)
             allowed[item["id"]] = item
     selected = allowed.get(msg.get("location")) or next(iter(locations), None)
@@ -60,6 +98,8 @@ async def snapshot(hass, connection, msg):
 
 @ws.websocket_command({
     vol.Required("type"): PREFIX + "save_location", vol.Optional("location"): str, **LOCATION,
+    vol.Optional("camera_entity"): str, vol.Optional("camera_url"): str,
+    vol.Optional("camera_video"): bool, vol.Optional("thermostat_entity"): str,
 })
 @ws.require_admin
 @ws.async_response
@@ -76,6 +116,14 @@ async def save_location(hass, connection, msg):
             raise ValueError("This location was removed.")
         if any(item.unique_id == key and item != existing for item in entry.subentries.values()):
             raise ValueError("This location is already saved.")
+        is_home = bool(existing and existing.subentry_id == home_location_id(hass, entry))
+        controls = {field: existing.data[field] for field in (
+            "camera_entity", "camera_url", "camera_video", "thermostat_entity",
+        ) if existing and field in existing.data}
+        controls.update({field: msg[field] for field in {
+            "camera_entity", "camera_url", "camera_video", "thermostat_entity",
+        } if field in msg})
+        data.update(location_controls(hass, controls, is_home))
         if existing is None:
             if len(entry.subentries) >= LIMIT:
                 raise ValueError(f"Save up to {LIMIT} locations.")

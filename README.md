@@ -26,6 +26,10 @@ The main panel uses a bundled Three.js scene to show drifting clouds, rain, snow
 
 Open the card's settings gear and select **Locations**. Administrators can search by city or postal code, enter coordinates and an IANA timezone manually, or edit and remove a saved location. Up to 20 locations are supported. The header dropdown switches the displayed location. Edits preserve entity IDs. Removing a location unregisters its entities, so check automations that use them first.
 
+In **Locations → Edit**, choose a Home Assistant camera or enter a direct browser-playable camera URL. Use the image format for an MJPEG stream or snapshot URL, and the video format for MP4 or browser-native HLS. For RTSP, first expose the feed as a Home Assistant camera entity. A dashboard served over HTTPS needs an HTTPS feed for reliable direct playback. The preview is hidden for locations without a camera. Tap the preview to expand it, then tap again to close it.
+
+For **Home**, choose a climate entity under **Home thermostat**. The card displays the reported room temperature, or the target if room temperature is unavailable. Tap it to open Home Assistant’s climate controls.
+
 **Appearance** offers Original, Brushed Steel, Amber Relay, Neon Grid, Midnight Drift, Aqua Current, Star Trek and Follow Appearance. Follow Appearance uses shared appearance variables when available and falls back to your Home Assistant theme. Theme and display units are local to the browser. Entity units follow Home Assistant settings.
 
 ## Automations
