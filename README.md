@@ -22,21 +22,37 @@ Atmosphere targets Home Assistant **2026.11 or later**.
 type: custom:atmosphere-weather-card
 ```
 
-Use a unique optional `storage_key` per dashboard card to remember its selection, theme and units independently. An optional `location` config subentry ID sets the initial selection.
+Use a unique optional `storage_key` per dashboard card to keep its browser preferences separate from other cards. An optional `location` config subentry ID sets the initial selection.
 
-## Animated sky
+## Dashboard features
 
-The main panel uses a bundled Three.js scene to show drifting clouds, rain, snow, fog, or stars based on the selected location’s conditions. Motion pauses offscreen and when the app is in the background. Reduced-motion settings and browsers without WebGL use the static sky. The card loads Three.js from Home Assistant.
+### Current weather and forecasts
 
-## Locations and themes
+- **Current conditions:** See the location’s temperature, feels-like temperature, forecast high and low, wind speed and direction, humidity, precipitation chance, and the next sunrise or sunset. The briefing summarizes what to expect over the next few hours.
+- **Animated sky:** The bundled Three.js scene draws clouds, rain, snow, fog, or stars as conditions change. At night, the Moon shows its phase, and partly cloudy hourly forecasts show a crescent instead of the Sun. The animation pauses offscreen or when the dashboard is in the background. A static sky is available with reduced motion or without WebGL.
+- **Hourly and daily forecasts:** Compare conditions, wind, precipitation probability and available rain or snow totals. An hourly temperature trend and a daily high-temperature trend make changes easy to spot. The daily view also shows the forecast low.
+- **Forecast details:** Tap current conditions or an hourly or daily column to see all readings available for that period. Use the gear in the panel to choose which readings appear. The panel leaves the forecast columns accessible so you can switch periods while it’s open, and uses two columns when space allows.
 
-Open the card's settings gear and select **Locations**. Administrators can search by city or postal code, enter coordinates and an IANA timezone manually, or edit and remove a saved location. Up to 20 locations are supported. The header dropdown switches the displayed location. Edits preserve entity IDs. Removing a location unregisters its entities, so check automations that use them first.
+### Precipitation radar and wind rose
 
-In **Locations → Edit**, choose a Home Assistant camera or enter a direct browser-playable camera URL. Use the image format for an MJPEG stream or snapshot URL, and the video format for MP4 or browser-native HLS. For RTSP, first expose the feed as a Home Assistant camera entity. A dashboard served over HTTPS needs an HTTPS feed for reliable direct playback. The preview is hidden for locations without a camera. Tap the preview to expand it, then tap again to close it.
+- Scrub through recent observed precipitation frames using the time slider.
+- Pan the map by dragging, zoom with the **−** and **+** buttons or pinch on a touchscreen, and use **Recenter** to return to the selected location. Higher zoom levels enlarge the available radar tiles.
+- Toggle **Wind rose** to show forecast wind direction and speed bands over the next 24 hours.
+- On a wide dashboard, the map sits beside the forecast. On a narrow phone, use the **Radar** tab. Short landscape screens can scroll vertically to keep the controls, forecast, and map readable.
 
-For **Home**, choose a climate entity under **Home thermostat**. The card displays the reported room temperature, or the target if room temperature is unavailable. Tap it to open Home Assistant’s climate controls.
+### Locations, cameras, and thermostat
 
-**Appearance** offers Original, Brushed Steel, Amber Relay, Neon Grid, Midnight Drift, Aqua Current, Star Trek and Follow Appearance. Follow Appearance uses shared appearance variables when available and falls back to your Home Assistant theme. Theme and display units are local to the browser. Entity units follow Home Assistant settings.
+- **Saved locations:** Administrators can add up to 20 locations, search by city or postal code, or enter coordinates and an IANA time zone. Switch locations using the dashboard header. Editing a location preserves its entity IDs. Removing it unregisters its entities.
+- **Optional camera per location:** Under **Settings → Locations → Edit**, choose a Home Assistant camera or enter a direct browser-playable URL. The preview opens full screen when tapped and closes when tapped again. The dashboard hides the preview for locations without a camera.
+- **Camera formats:** Select image mode for MJPEG or a snapshot URL, or video mode for MP4 and browser-native HLS. When a direct video clip ends, the card requests and plays the latest available clip from the same URL. For RTSP, use a Home Assistant camera entity. Use an HTTPS feed for a dashboard served over HTTPS.
+- **Home thermostat:** Select a climate entity under **Home thermostat** for the Home location. The card shows the reported room temperature, or the target if room temperature is unavailable. Tap it to open Home Assistant’s climate controls and adjust the setpoint.
+
+### Appearance, units, and languages
+
+- **Eight appearance options:** Original, Brushed Steel, Amber Relay, Neon Grid, Midnight Drift, Aqua Current, Star Trek, and Follow Appearance. Follow Appearance uses shared appearance variables when available and falls back to the Home Assistant theme.
+- **Metric or imperial display:** Change the dashboard’s display units in Settings. Entity units follow Home Assistant settings.
+- **12 dashboard languages:** English, French, Spanish, German, Tagalog, Hindi, Dutch, Swedish, Italian, Polish, Danish, and Norwegian Bokmål. By default, the dashboard follows the Home Assistant profile language and uses English if that language is unsupported. Choose a different language under **Settings → Language** to override it or select **Follow Home Assistant** to switch back. The language changes dashboard labels, weather conditions, and forecast date and time formatting. Official alert titles and descriptions use the issuing agency’s language.
+- **Browser preferences:** The card remembers the selected location, theme, display units, language override, wind rose visibility, and chosen forecast readings in the browser.
 
 ## Theme gallery
 
@@ -62,7 +78,9 @@ The same eight appearance options at a 390 px phone viewport. Click any screensh
 
 ## Automations
 
-Find the device for your location under the integration. Its native weather entity supports `weather.get_forecasts` for hourly and daily forecasts. Separate sensors expose temperature, feels-like temperature, humidity, pressure, wind speed, direction and gusts, precipitation, cloud cover, forecast highs and lows, upcoming sunrise and sunset, and the last successful update. UV index and visibility represent the next forecast hour.
+Find the device for your location under the integration. Its native weather entity supports `weather.get_forecasts` for hourly and daily forecasts. Separate sensors expose temperature, feels-like temperature, humidity, pressure, wind speed, direction and gusts, current-interval precipitation, next-hour precipitation probability, cloud cover, forecast highs and lows, upcoming sunrise and sunset, and the last successful update. UV index and visibility represent the next forecast hour.
+
+For example, use the **Freezing** binary sensor to trigger a frost reminder, or the **Next hour precipitation probability** sensor to decide whether to skip scheduled watering.
 
 Use **Freezing** for temperatures at or below 0 °C, **Daylight** for the provider's day/night flag, and **Precipitation expected** for at least 50% probability in the next forecast hour. Weather is model-based. The current precipitation sensor is an amount over the provider's current interval, typically 15 minutes. Failed refreshes mark the entities unavailable. The card may display the previous snapshot with its last update time.
 
