@@ -176,6 +176,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.viewportFrame = requestAnimationFrame(this.fitViewport);
     this.radarLayoutObserver = new ResizeObserver(() => {
       this.schedulePopupFit();
+      this.drawTemperatureTrend();
       const mobile = this.$('shell').clientWidth <= 700;
       const target = this.$(mobile ? 'mobile-radar-slot' : 'desktop-radar-slot');
       const radar = this.$('radar');
@@ -299,7 +300,7 @@ class AtmosphereWeatherCard extends HTMLElement {
         <section class="panel forecast"><div class="heading"><h2 id="forecast-title">Forecast</h2>
           <div class="tabs"><button data-tab="hourly">Hourly</button><button data-tab="daily">Daily</button>
           <button data-tab="radar" class="mobile-tab">Radar</button></div></div>
-          <div id="periods"></div><div id="mobile-radar-slot"></div></section>
+          <canvas id="temperature-trend" role="img" hidden></canvas><div id="periods"></div><div id="mobile-radar-slot"></div></section>
         <section class="panel radar"><div class="heading"><h2>Precipitation radar</h2></div><div id="desktop-radar-slot"><div id="radar"></div></div></section>
       </div>
       <footer><a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather by Open-Meteo</a><span id="status" role="status"></span></footer>
@@ -487,12 +488,58 @@ class AtmosphereWeatherCard extends HTMLElement {
       <span>${mode === 'daily' ? 'Low ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed) + ' ' + this.compass(item.wind_bearing,item.native_wind_speed)}</span>
       <span class="chance"> ${this.measure(item.precipitation_probability,'%')}${this.accumulation(item) ? `<span class="accumulation">${escape(this.accumulation(item))}</span>` : ''}</span></button>`).join('')}</div>`
       : '<p class="empty">Forecast unavailable</p>';
+    this.trendValues = periods.map(item => item.native_temperature);
+    const trend = this.$('temperature-trend');
+    trend.setAttribute('aria-label',mode === 'daily' ? 'Daily high temperature trend' : 'Hourly temperature trend');
+    trend.title = trend.getAttribute('aria-label');
+    this.drawTemperatureTrend();
     this.$('status').textContent = current.updated_at ? (fresh ? 'Updated ' : 'Stale · last update ') + this.time(current.updated_at) : '';
     this.$('trek-time').textContent = selected
       ? this.date(new Date(), {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
         + (current.updated_at ? ' · ' + this.$('status').textContent : '') : '';
     this.renderRadar();
     this.renderWeatherAlerts();
+  }
+
+  drawTemperatureTrend() {
+    const canvas = this.$('temperature-trend');
+    if (!canvas) return;
+    const columns = [...this.$('periods').querySelectorAll('.period')];
+    const visible = columns.map((column,index) => ({box:column.getBoundingClientRect(),value:this.trendValues?.[index]}))
+      .filter(point => point.box.width > 0);
+    const values = visible.map(point => point.value).filter(Number.isFinite);
+    canvas.hidden = this.tab === 'radar' || values.length < 2;
+    if (canvas.hidden) return;
+
+    const box = canvas.getBoundingClientRect();
+    if (!box.width || !box.height) return;
+    const scale = Math.min(window.devicePixelRatio || 1,2);
+    canvas.width = Math.round(box.width*scale);
+    canvas.height = Math.round(box.height*scale);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale,scale);
+    const min = Math.min(...values), max = Math.max(...values);
+    const span = Math.max(max-min,4);
+    const middle = (min+max)/2;
+    const points = visible.map(({box:column,value}) => Number.isFinite(value)
+      ? [column.left + column.width/2 - box.left, box.height/2 - (value-middle)*(box.height-8)/span]
+      : null);
+    ctx.strokeStyle = ctx.fillStyle = getComputedStyle(canvas).color;
+    ctx.lineWidth = 1.75;
+    ctx.beginPath();
+    let connected = false;
+    for (const point of points) {
+      if (!point) { connected = false; continue; }
+      if (connected) ctx.lineTo(...point); else ctx.moveTo(...point);
+      connected = true;
+    }
+    ctx.stroke();
+    for (const point of points) {
+      if (!point) continue;
+      ctx.beginPath();
+      ctx.arc(...point,2.5,0,Math.PI*2);
+      ctx.fill();
+    }
   }
 
   openReadings(kind,index) {
@@ -1166,6 +1213,23 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 #periods .period.period-reading small{font-size:clamp(14px,1.55cqw,26px);font-weight:700;line-height:1.15}
 @container(max-width:700px){
  #periods .period.period-reading small{font-size:clamp(12px,3.8cqw,19px)}
+}
+
+#temperature-trend{display:block;width:100%;height:28px;flex:none;color:var(--accent)}
+#temperature-trend[hidden]{display:none}
+.forecast:has(#temperature-trend:not([hidden])) .periods{grid-template-rows:minmax(0,1fr)}
+.forecast:has(#temperature-trend:not([hidden])) .period .icon{min-height:0}
+@container(min-width:701px){
+ #shell:has(#temperature-trend:not([hidden])){grid-template-rows:70px minmax(130px,.8fr) calc(65px + var(--alert-height,0px)) minmax(230px,1.2fr) auto}
+}
+@container(max-width:700px){
+ #temperature-trend{height:20px}
+ .forecast:has(#temperature-trend:not([hidden])){gap:3px}
+ #shell:has(#temperature-trend:not([hidden])){
+   grid-template-rows:auto minmax(104px,.55fr) calc(63px + var(--alert-height,0px)) minmax(230px,1fr) auto;
+ }
+ .forecast:has(#temperature-trend:not([hidden])) .period{gap:2px}
+ .forecast:has(#temperature-trend:not([hidden])) .period .icon i{font-size:clamp(22px,7cqw,38px)}
 }
 
 `;
