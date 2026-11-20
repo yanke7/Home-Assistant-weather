@@ -324,7 +324,7 @@ class AtmosphereWeatherCard extends HTMLElement {
           <div class="tabs"><button data-tab="hourly">Hourly</button><button data-tab="daily">Daily</button>
           <button data-tab="radar" class="mobile-tab">Radar</button></div></div>
           <canvas id="temperature-trend" role="img" hidden></canvas><div id="periods"></div><div id="mobile-radar-slot"></div></section>
-        <section class="panel radar"><div class="heading"><h2>Precipitation radar</h2></div><div id="desktop-radar-slot"><div id="radar"></div></div></section>
+        <section class="panel radar"><div id="desktop-radar-slot"><div id="radar"></div></div></section>
       </div>
       <footer><a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather by Open-Meteo</a><span id="status" role="status"></span></footer>
       <dialog id="dialog" aria-labelledby="settings-title">
@@ -746,7 +746,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     const location = this.data?.selected;
     const frame = this.frames[this.frameIndex];
     if (!location || !this.data.radar || !frame) {
-      host.innerHTML = `<p class="empty">${this.data && !this.data.radar ? 'Radar disabled in integration settings' : 'Recent radar unavailable'}</p>`;
+      host.innerHTML = `<h2 class="radar-title">Precipitation radar</h2><p class="empty">${this.data && !this.data.radar ? 'Radar disabled in integration settings' : 'Recent radar unavailable'}</p>`;
       return;
     }
     if (this.radarGesture?.location === location.id) return;
@@ -786,18 +786,20 @@ class AtmosphereWeatherCard extends HTMLElement {
     const homeX = ((home.x-center.x+1.5)%1-.5)*worldPixels;
     const homeY = (home.y-center.y)*worldPixels;
     host.innerHTML = `<div class="radar-content" data-signature="${signature}">
-      <div class="radar-map-area">
-        <div class="map" role="img" aria-label="Recent observed precipitation near ${escape(location.name)}"><div class="radar-plane">${layers.join('')}<span class="pin" style="left:calc(50% + ${homeX}px);top:calc(50% + ${homeY}px)"></span></div></div>
-        <aside class="wind-rose" hidden><strong>Wind · next 24 hours</strong>
-          <canvas width="176" height="176" role="img" aria-label="Forecast wind rose"></canvas>
-          <small class="wind-rose-key"></small>
-        </aside>
+      <div class="heading radar-heading"><h2 class="radar-title">Precipitation radar</h2>
         <div class="radar-tools" role="group" aria-label="Radar map controls">
           <button type="button" id="wind-rose-toggle" aria-pressed="false">Wind rose</button>
           <button type="button" id="radar-out" aria-label="Zoom out radar" ${zoom <= 3 ? 'disabled' : ''}>−</button>
           <button type="button" id="radar-in" aria-label="Zoom in radar" ${zoom >= 10 ? 'disabled' : ''}>+</button>
           <button type="button" id="radar-center" aria-label="Recenter radar" title="Recenter radar">⌖</button>
         </div>
+      </div>
+      <div class="radar-map-area">
+        <div class="map" role="img" aria-label="Recent observed precipitation near ${escape(location.name)}"><div class="radar-plane">${layers.join('')}<span class="pin" style="left:calc(50% + ${homeX}px);top:calc(50% + ${homeY}px)"></span></div></div>
+        <aside class="wind-rose" hidden><strong>Wind · next 24 hours</strong>
+          <canvas width="176" height="176" role="img" aria-label="Forecast wind rose"></canvas>
+          <small class="wind-rose-key"></small>
+        </aside>
       </div>
       <div class="radar-controls"><input type="range" id="radar-time" min="0" max="${this.frames.length - 1}" value="${this.frameIndex}" aria-label="Observed radar time">
       <span>${this.time(frame.time * 1000)}</span></div>
@@ -1204,7 +1206,7 @@ h2{margin:0;font-size:1.08em}.tabs{display:flex;gap:5px}.tabs button{font-size:.
 #periods,#radar{flex:1;min-height:0}.periods{height:100%;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
 .periods.daily{grid-template-columns:repeat(7,minmax(0,1fr))}.period{display:flex;flex-direction:column;align-items:center;justify-content:space-evenly;gap:4px;text-align:center;min-width:0}
 .period .icon{color:var(--accent);font-size:1.75em}.period strong{font-size:1.45em}.empty{text-align:center;margin-top:24px}
-.radar-content{height:100%;display:grid;grid-template-rows:minmax(55px,1fr) auto auto;gap:4px}.map{position:relative;overflow:hidden;border-radius:8px;background:#263947}
+.radar-content{height:100%;display:grid;grid-template-rows:auto minmax(55px,1fr) auto auto;gap:4px}.map{position:relative;overflow:hidden;border-radius:8px;background:#263947}
 .radar-tile-status:not(:empty)::before{content:" · "}.map img{position:absolute;width:256px;height:256px;max-width:none}.map .overlay{opacity:.8}.pin{position:absolute;top:50%;left:50%;translate:-50% -50%;background:#ffcc66;width:10px;height:10px;border:2px solid #403319;border-radius:50%;box-shadow:0 0 0 4px #ffcc6666}
 .radar-controls input{width:75%;padding:0;accent-color:var(--accent)}.radar-controls span{font-size:.75em}
 footer a,.radar-content a{color:inherit}footer{gap:8px}
@@ -1547,7 +1549,10 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 
 .radar-map-area{position:relative;min-height:0}
 .radar-map-area .map{height:100%}
-.radar-tools{position:absolute;top:6px;right:6px;display:flex;gap:4px}
+.radar-heading{flex-wrap:wrap;gap:6px;margin-bottom:2px}
+.radar-title{margin:0}
+.radar-tools{display:flex;flex-wrap:wrap;gap:4px}
+#mobile-radar-slot .radar-title{display:none}
 .radar-tools button{background:#101a27;color:#eef5fa;border:1px solid #8297ad;font-weight:700;
  border-radius:7px;min-width:36px;min-height:36px;padding:4px 7px;font:600 13px/1.1 system-ui}
 .radar-tools button[aria-pressed=true]{background:#d9ecfb;color:#132333}
@@ -1589,6 +1594,15 @@ main[data-theme=trek] .daily .period .chance .accumulation{
  #hero-layout.with-camera .weather-briefing{right:40%;left:15px}
  #hero-layout.with-camera .hero.has-briefing #thermostat{bottom:clamp(35px,9cqw,49px)}
  #camera-preview{position:absolute;z-index:2;right:7px;bottom:7px;width:33%;height:clamp(54px,17cqw,102px);border-radius:9px}
+}
+
+@media (orientation:landscape) and (max-height:540px){
+ #shell:has(#temperature-trend){height:auto;grid-template-rows:auto minmax(175px,auto) auto minmax(340px,auto) auto}
+ #shell .conditions-strip{min-height:65px}
+ #shell .metrics{min-height:65px}
+ #shell #radar .radar-content{grid-template-rows:auto minmax(180px,1fr) auto auto}
+ #shell .wind-rose canvas{width:min(100%,110px)}
+ #shell .period .icon i{font-size:clamp(27px,4.2cqw,46px)}
 }
 
 `;
