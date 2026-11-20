@@ -583,6 +583,35 @@ main[data-theme=trek] .map::after{content:"";position:absolute;inset:0;pointer-e
  main[data-theme=trek] .period .icon{border-width:4px 0 3px 3px}
 }
 
+/* Each instrument has separate end caps and interrupted rails. */
+main[data-theme=trek] .metrics{gap:clamp(4px,.65cqw,12px)}
+main[data-theme=trek] .metrics>div{
+ --cap:clamp(14px,2.4cqw,42px);--rail-width:calc(100% - var(--cap) - var(--cap) - 10px);
+ position:relative;box-shadow:none;border-radius:0;overflow:hidden;
+ padding:10px calc(var(--cap) + 10px);
+ background:
+  linear-gradient(90deg,var(--meter) 0 64%,#050505 64% 66%,color-mix(in srgb,var(--meter) 40%,#050505) 66% 92%,#050505 92%) center top/var(--rail-width) 5px no-repeat,
+  linear-gradient(90deg,var(--meter) 0 72%,#050505 72% 79%,var(--meter) 79% 91%,#050505 91%) center bottom/var(--rail-width) 5px no-repeat,
+  #050505;
+}
+main[data-theme=trek] .metrics>div::before,main[data-theme=trek] .metrics>div::after{
+ content:"";position:absolute;inset-block:0;width:var(--cap);pointer-events:none;
+ background:linear-gradient(155deg,color-mix(in srgb,var(--meter),white 11%),var(--meter));
+}
+main[data-theme=trek] .metrics>div::before{left:0;border-radius:999px 0 0 999px}
+main[data-theme=trek] .metrics>div::after{right:0;border-radius:0 999px 999px 0}
+main[data-theme=trek] .metrics strong{font-size:clamp(15px,2.25cqw,37px);line-height:1}
+main[data-theme=trek] .metrics span{font-size:clamp(10px,1.22cqw,19px);line-height:1.05}
+@container(max-width:1050px){
+ main[data-theme=trek] .metrics>div{flex-direction:column-reverse;align-items:flex-start;justify-content:center;gap:3px}
+ main[data-theme=trek] .metrics span{text-align:left}
+}
+@container(max-width:700px){
+ main[data-theme=trek] .metrics>div{--cap:5px;padding:7px 8px;background-size:var(--rail-width) 3px,var(--rail-width) 3px,auto}
+ main[data-theme=trek] .metrics strong{font-size:clamp(11px,3.3cqw,16px)}
+ main[data-theme=trek] .metrics span{font-size:9px}
+}
+
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
 window.customCards = window.customCards || [];
