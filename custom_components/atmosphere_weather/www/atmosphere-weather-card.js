@@ -430,11 +430,11 @@ class AtmosphereWeatherCard extends HTMLElement {
     const mode = this.tab === 'daily' ? 'daily' : 'hourly';
     const periods = (weather?.[mode] || []).slice(0,mode === 'daily' ? 7 : 8);
     this.$('periods').innerHTML = periods.length ? `<div class="periods ${mode}">${periods.map((item,index) => `
-      <div class="period"><button class="period-reading" data-reading="${mode}" data-period="${index}" aria-label="${escape(this.date(item.datetime,{weekday:'long',month:'short',day:'numeric',...(mode === 'hourly' ? {hour:'numeric',minute:'2-digit'} : {})}))} weather details"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : {hour:'numeric'})}</small></button>
+      <button type="button" class="period period-reading" data-reading="${mode}" data-period="${index}" aria-label="${escape(this.date(item.datetime,{weekday:'long',month:'short',day:'numeric',...(mode === 'hourly' ? {hour:'numeric',minute:'2-digit'} : {})}))} weather details"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : {hour:'numeric'})}</small>
       <span class="icon" role="img" aria-label="${escape(item.condition || 'Unknown condition')}"><i aria-hidden="true">${icons[item.condition] || '◌'}</i></span>
       <strong>${this.temp(item.native_temperature)}</strong>
       <span>${mode === 'daily' ? 'Low ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed) + ' ' + this.compass(item.wind_bearing,item.native_wind_speed)}</span>
-      <span class="chance"> ${this.measure(item.precipitation_probability,'%')}${this.accumulation(item) ? `<span class="accumulation">${escape(this.accumulation(item))}</span>` : ''}</span></div>`).join('')}</div>`
+      <span class="chance"> ${this.measure(item.precipitation_probability,'%')}${this.accumulation(item) ? `<span class="accumulation">${escape(this.accumulation(item))}</span>` : ''}</span></button>`).join('')}</div>`
       : '<p class="empty">Forecast unavailable</p>';
     this.$('status').textContent = current.updated_at ? (fresh ? 'Updated ' : 'Stale · last update ') + this.time(current.updated_at) : '';
     this.$('trek-time').textContent = selected
@@ -1006,7 +1006,9 @@ main[data-theme=trek] .daily .period .chance .accumulation{
 
 .current-reading,.period-reading{background:none;border:0;color:inherit;padding:0;cursor:pointer}
 .current-reading{text-align:left;width:max-content}
-.period-reading{display:block;width:100%;min-height:28px}
+.period-reading{width:100%;min-height:0;font:inherit;border-radius:8px}
+.forecast .period-reading:focus-visible{outline-offset:-2px}
+.period-reading:hover small{text-decoration:underline;text-underline-offset:2px}
 .period-reading small{display:block}
 .current-reading:hover,.period-reading:hover{color:var(--accent)}
 .reading-dialog .heading{gap:8px}
