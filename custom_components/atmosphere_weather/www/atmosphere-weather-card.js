@@ -1,3 +1,5 @@
+import {languages,translate} from './translations.js?v=0.1.32';
+
 const themes = [
   ['original','Original','#101923','#17232e','#eac68b'],
   ['steel','Brushed Steel','#24272c','#363b43','#c8b8ff'],
@@ -155,6 +157,8 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.key = 'atmosphere.' + (config.storage_key || config.location || 'default');
     this.selection = this.read('location') || config.location;
     this.theme = themes.find(item => item[0] === this.read('theme'))?.[0] || 'original';
+    const language = this.read('language');
+    this.language = Object.hasOwn(languages,language) ? language : 'en';
     this.imperial = this.read('units') === 'imperial';
   }
   read(key) { try { return localStorage.getItem(this.key + '.' + key); } catch { return null; } }
@@ -298,7 +302,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.shadowRoot.innerHTML = `<style>${CSS}</style><main id="shell">
       <header><div class="brand"><span aria-hidden="true">◒</span><strong>Atmosphere</strong></div>
         <div class="actions"><select id="location" aria-label="Weather location"></select>
-          <button id="settings" aria-label="Settings" title="Settings"><span class="gear">⚙</span><span class="trek-settings">Settings</span></button><div id="trek-time"></div></div></header>
+          <button id="settings" aria-label="Settings" title="Settings"><span class="gear">⚙</span><span class="trek-settings" data-label="Settings">Settings</span></button><div id="trek-time"></div></div></header>
       <div id="hero-layout">
         <section id="hero" class="hero"><div id="sky-content"></div>
           <button id="thermostat" type="button" aria-haspopup="dialog" hidden></button>
@@ -320,31 +324,41 @@ class AtmosphereWeatherCard extends HTMLElement {
         <section class="metrics" id="metrics" aria-label="Weather details"></section>
       </div>
       <div class="outlook">
-        <section class="panel forecast"><div class="heading"><h2 id="forecast-title">Forecast</h2>
-          <div class="tabs"><button data-tab="hourly">Hourly</button><button data-tab="daily">Daily</button>
-          <button data-tab="radar" class="mobile-tab">Radar</button></div></div>
+        <section class="panel forecast"><div class="heading"><h2 id="forecast-title" data-label="Forecast">Forecast</h2>
+          <div class="tabs"><button data-tab="hourly" data-label="Hourly">Hourly</button><button data-tab="daily" data-label="Daily">Daily</button>
+          <button data-tab="radar" class="mobile-tab" data-label="Radar">Radar</button></div></div>
           <canvas id="temperature-trend" role="img" hidden></canvas><div id="periods"></div><div id="mobile-radar-slot"></div></section>
         <section class="panel radar"><div id="desktop-radar-slot"><div id="radar"></div></div></section>
       </div>
-      <footer><a href="https://open-meteo.com/" target="_blank" rel="noopener">Weather by Open-Meteo</a><span id="status" role="status"></span></footer>
+      <footer><a href="https://open-meteo.com/" target="_blank" rel="noopener" data-label="Weather by Open-Meteo">Weather by Open-Meteo</a><span id="status" role="status"></span></footer>
       <dialog id="dialog" aria-labelledby="settings-title">
-       <div class="heading"><h2 id="settings-title">Settings</h2><button id="close" aria-label="Close settings">✕</button></div>
+       <div class="heading"><h2 id="settings-title" data-label="Settings">Settings</h2><button id="close" aria-label="Close settings">✕</button></div>
        <div id="settings-content">
-        <section><h3>Locations</h3><div id="location-settings"></div><p id="notice" role="status"></p></section>
-        <section><h3>Appearance</h3><div id="appearance-settings"></div></section>
-        <section><h3>Data</h3><p>Open-Meteo receives saved coordinates and location searches. Home Assistant serves the base map and RainViewer supplies precipitation tiles. Provider and radar controls are under Devices &amp; services → Atmosphere Weather → Configure.</p></section>
+        <label class="units"><span data-label="Language">Language</span>
+          <select id="language">${Object.entries(languages).map(([code,name]) => `<option value="${code}">${name}</option>`).join('')}</select>
+        </label>
+        <section><h3 data-label="Locations">Locations</h3><div id="location-settings"></div><p id="notice" role="status"></p></section>
+        <section><h3 data-label="Appearance">Appearance</h3><div id="appearance-settings"></div></section>
+        <section><h3 data-label="Data">Data</h3><p data-label="Open-Meteo receives saved coordinates and location searches. Home Assistant serves the base map and RainViewer supplies precipitation tiles. Provider and radar controls are under Devices &amp; services → Atmosphere Weather → Configure.">Open-Meteo receives saved coordinates and location searches. Home Assistant serves the base map and RainViewer supplies precipitation tiles. Provider and radar controls are under Devices &amp; services → Atmosphere Weather → Configure.</p></section>
        </div>
       </dialog>
       <dialog id="alerts-dialog" aria-labelledby="alerts-title">
-        <div class="heading"><h2 id="alerts-title">Active weather alerts</h2><button id="alerts-close" aria-label="Close weather alerts">✕</button></div>
+        <div class="heading"><h2 id="alerts-title" data-label="Active weather alerts">Active weather alerts</h2><button id="alerts-close" aria-label="Close weather alerts">✕</button></div>
         <div id="alerts-list"></div>
       </dialog>
       <dialog id="reading-settings" class="reading-dialog" aria-labelledby="reading-settings-title">
-        <div class="heading"><h2 id="reading-settings-title">Choose readings</h2>
+        <div class="heading"><h2 id="reading-settings-title" data-label="Choose readings">Choose readings</h2>
           <button id="reading-settings-close" aria-label="Back to weather details">✕</button></div>
-        <p>Choose what to show in this type of forecast.</p>
-        <div id="reading-choices"></div><button id="reading-reset">Show all readings</button>
+        <p data-label="Choose what to show in this type of forecast.">Choose what to show in this type of forecast.</p>
+        <div id="reading-choices"></div><button id="reading-reset" data-label="Show all readings">Show all readings</button>
       </dialog></main>`;
+    this.$('language').onchange = event => {
+      this.language = event.target.value;
+      this.write('language',this.language);
+      this.renderAppearanceSettings();
+      this.renderLocationSettings();
+      this.render();
+    };
     this.$('settings').onclick = () => {
       this.renderLocationSettings();
       this.renderAppearanceSettings();
@@ -407,13 +421,20 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.render();
   }
   $(id) { return this.shadowRoot.getElementById(id); }
+  t(key,values) { return translate(this.language,key,values); }
+  conditionLabel(condition) {
+    const labels = {partlycloudy:'Partly cloudy',sunny:'Sunny','clear-night':'Clear night',cloudy:'Cloudy',
+      rainy:'Rainy',pouring:'Pouring',snowy:'Snowy',fog:'Fog',lightning:'Lightning',
+      'lightning-rainy':'Thunderstorms and rain',hail:'Hail','snowy-rainy':'Rain and snow',windy:'Windy','windy-variant':'Windy'};
+    return this.t(labels[condition] || 'Unknown condition');
+  }
   temp(value) { return value == null ? '—' : Math.round(this.imperial ? value * 1.8 + 32 : value) + '°'; }
   measure(value, unit, factor = 1, decimals = 0) {
     return value == null ? '—' : Number((value * factor).toFixed(decimals)) + ' ' + unit;
   }
   date(value, options) {
     if (!value) return '—';
-    return new Intl.DateTimeFormat(this._hass?.locale?.language || undefined,
+    return new Intl.DateTimeFormat(this.language,
       {timeZone:this.data?.selected?.timezone, ...options}).format(new Date(value));
   }
   time(value) { return this.date(value,{hour:'numeric',minute:'2-digit'}); }
@@ -434,7 +455,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     const formatted = value.toFixed(digits);
     const unit = this.imperial ? 'in' : snow ? 'cm' : 'mm';
     return (+formatted === 0 ? '<' + (this.imperial ? '0.01' : '0.1') : +formatted)
-      + ' ' + unit + (snow ? ' snow' : '');
+      + ' ' + unit + (snow ? ' ' + this.t('snow') : '');
   }
 
   briefing(hourly) {
@@ -442,22 +463,22 @@ class AtmosphereWeatherCard extends HTMLElement {
     if (!periods.length) return '';
     const wet = periods.find(item => item.precipitation_probability >= 50 && item.datetime);
     if (wet) {
-      const kind = wet.condition === 'snowy' ? 'Snow'
-        : ['rainy','pouring','lightning-rainy'].includes(wet.condition) ? 'Rain' : 'Precipitation';
-      return kind + ' likely around ' + this.time(wet.datetime) + '.';
+      const kind = wet.condition === 'snowy' ? 'Snow likely around {time}.'
+        : ['rainy','pouring','lightning-rainy'].includes(wet.condition) ? 'Rain likely around {time}.' : 'Precipitation likely around {time}.';
+      return this.t(kind,{time:this.time(wet.datetime)});
     }
     const temps = periods.map(item => item.native_temperature).filter(Number.isFinite);
     if (temps.length < 2) return '';
     const start = temps[0], end = temps.at(-1);
     if (Math.abs(end-start) >= 2) {
-      return 'Temperatures ' + (end > start ? 'rise' : 'fall') + ' from '
-        + this.temp(start) + ' to ' + this.temp(end) + ' over the next few hours.';
+      return this.t(end > start ? 'Temperatures rise from {start} to {end} over the next few hours.'
+        : 'Temperatures fall from {start} to {end} over the next few hours.',{start:this.temp(start),end:this.temp(end)});
     }
     if (Math.max(...temps) - Math.min(...temps) <= 2) {
-      return 'Temperatures stay near ' + this.temp(start) + ' over the next few hours.';
+      return this.t('Temperatures stay near {temp} over the next few hours.',{temp:this.temp(start)});
     }
-    return 'Temperatures range from ' + this.temp(Math.min(...temps)) + ' to '
-      + this.temp(Math.max(...temps)) + ' over the next few hours.';
+    return this.t('Temperatures range from {low} to {high} over the next few hours.',
+      {low:this.temp(Math.min(...temps)),high:this.temp(Math.max(...temps))});
   }
 
   render() {
@@ -467,6 +488,13 @@ class AtmosphereWeatherCard extends HTMLElement {
     const current = weather?.current || {};
     const [, , background, surface, accent] = themes.find(item => item[0] === this.theme) || themes[0];
     shell.dataset.theme = this.theme;
+    if (shell.lang !== this.language) {
+      shell.lang = this.language;
+      this.$('language').value = this.language;
+      for (const label of shell.querySelectorAll('[data-label]')) label.textContent = this.t(label.dataset.label);
+      this.$('settings').setAttribute('aria-label',this.t('Settings'));
+      this.$('settings').title = this.t('Settings');
+    }
     const brand = shell.querySelector('.brand');
     if (this.theme === 'trek' && !brand.querySelector('img')) {
       loadTrekFont();
@@ -477,64 +505,65 @@ class AtmosphereWeatherCard extends HTMLElement {
     } else if (this.theme !== 'trek') {
       brand.querySelector('img')?.remove();
     }
-    this.$('forecast-title').textContent = this.tab === 'radar' ? 'Precipitation radar' : this.theme === 'trek'
-      ? (this.tab === 'daily' ? 'Daily forecast' : 'Hourly forecast') : 'Forecast';
+    this.$('forecast-title').textContent = this.tab === 'radar' ? this.t('Precipitation radar') : this.theme === 'trek'
+      ? (this.tab === 'daily' ? this.t('Daily forecast') : this.t('Hourly forecast')) : this.t('Forecast');
     shell.dataset.tab = this.tab;
     shell.style.setProperty('--bg',background);
     shell.style.setProperty('--surface',surface);
     shell.style.setProperty('--accent',accent);
     const selector = this.$('location');
     const options = locations.map(location => `<option value="${escape(location.id)}">${escape(location.name)}</option>`).join('');
-    if (selector.dataset.options !== options) {
-      selector.innerHTML = options || '<option>No locations</option>';
-      selector.dataset.options = options;
+    const locationOptions = options || `<option>${escape(this.t('No locations'))}</option>`;
+    if (selector.dataset.options !== locationOptions) {
+      selector.innerHTML = locationOptions;
+      selector.dataset.options = locationOptions;
     }
     selector.disabled = !locations.length;
     if (selected) selector.value = selected.id;
-    const label = current.condition === 'partlycloudy' ? 'Partly cloudy' : current.condition?.replaceAll('-', ' ');
+    const label = current.condition ? this.conditionLabel(current.condition) : null;
     const briefing = fresh ? this.briefing(weather?.hourly) : '';
     this.$('hero').classList.toggle('has-briefing',Boolean(briefing));
     this.$('hero').dataset.sky = current.sky_period || (current.is_day === 0 ? 'night' : 'day');
     this.updateSky();
     this.$('sky-content').innerHTML = selected ? `<div class="current"><div class="kicker">${escape(selected.name)}</div>
        <button class="temperature current-reading" data-reading="current" aria-label="Current weather details">${this.temp(current.temperature_2m)}<sup>${this.imperial ? 'F' : 'C'}</sup></button>
-       <span class="trek-feels">Feels like ${this.temp(current.apparent_temperature)}</span><div class="condition">${escape(label || 'Waiting for weather')}</div></div>
+       <span class="trek-feels">${escape(this.t("Feels like"))} ${this.temp(current.apparent_temperature)}</span><div class="condition">${escape(label || this.t('Waiting for weather'))}</div></div>
        ${briefing ? `<p class="weather-briefing">${escape(briefing)}</p>` : ''}
        <div class="orb" aria-hidden="true"></div><div class="summary">
        <div>${this.date(new Date(),{weekday:'long',month:'short',day:'numeric'})}</div>
        <strong>H ${this.temp(current.temperature_high)} · L ${this.temp(current.temperature_low)}</strong>
-       <div class="summary-feels">Feels like ${this.temp(current.apparent_temperature)}</div></div>`
-      : `<div class="current"><h2>${this.error ? 'Weather unavailable' : this.data ? 'Add a location in Settings' : 'Loading weather…'}</h2><p>${escape(this.error)}</p></div>`;
+       <div class="summary-feels">${escape(this.t("Feels like"))} ${this.temp(current.apparent_temperature)}</div></div>`
+      : `<div class="current"><h2>${this.error ? this.t('Weather unavailable') : this.data ? this.t('Add a location in Settings') : this.t('Loading weather…')}</h2><p>${escape(this.error)}</p></div>`;
     this.renderLocationControls();
     if (selected && current.is_day === 0) {
       drawMoon(this.$('hero').querySelector('.orb'), selected.latitude, Date.now());
     }
     const direction = this.compass(current.wind_direction_10m,current.wind_speed_10m);
     const metrics = [
-      [direction ? 'Wind · ' + direction : 'Wind',this.wind(current.wind_speed_10m)],
-      ['Humidity',this.measure(current.relative_humidity_2m,'%')],
-      ['Precipitation chance',this.measure(current.next_precipitation,'%')],
-      [current.is_day === 0 ? 'Next sunrise' : 'Next sunset',this.time(current.is_day === 0 ? current.sunrise : current.sunset)],
+      [direction ? this.t('Wind') + ' · ' + direction : this.t('Wind'),this.wind(current.wind_speed_10m)],
+      [this.t('Humidity'),this.measure(current.relative_humidity_2m,'%')],
+      [this.t('Precipitation chance'),this.measure(current.next_precipitation,'%')],
+      [current.is_day === 0 ? this.t('Next sunrise') : this.t('Next sunset'),this.time(current.is_day === 0 ? current.sunrise : current.sunset)],
     ];
     this.$('metrics').innerHTML = metrics.map(([name,value]) =>
       `<div><span>${name}</span><strong>${value}</strong></div>`).join('');
-    this.shadowRoot.querySelectorAll('[data-tab]').forEach(button =>
+    this.shadowRoot.querySelectorAll('button[data-tab]').forEach(button =>
       button.setAttribute('aria-pressed',String(button.dataset.tab === this.tab)));
     const mode = this.tab === 'daily' ? 'daily' : 'hourly';
     const periods = (weather?.[mode] || []).slice(0,mode === 'daily' ? 7 : 8);
     this.$('periods').innerHTML = periods.length ? `<div class="periods ${mode}">${periods.map((item,index) => `
       <button type="button" class="period period-reading" data-reading="${mode}" data-period="${index}" aria-label="${escape(this.date(item.datetime,{weekday:'long',month:'short',day:'numeric',...(mode === 'hourly' ? {hour:'numeric',minute:'2-digit'} : {})}))} weather details"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : {hour:'numeric'})}</small>
-      <span class="icon" role="img" aria-label="${escape(item.condition === 'partlycloudy' ? 'Partly cloudy' : item.condition || 'Unknown condition')}"><i aria-hidden="true">${forecastIcon(item)}</i></span>
+      <span class="icon" role="img" aria-label="${escape(this.conditionLabel(item.condition))}"><i aria-hidden="true">${forecastIcon(item)}</i></span>
       <strong>${this.temp(item.native_temperature)}</strong>
-      <span>${mode === 'daily' ? 'Low ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed) + ' ' + this.compass(item.wind_bearing,item.native_wind_speed)}</span>
+      <span>${mode === 'daily' ? this.t('Low') + ' ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed) + ' ' + this.compass(item.wind_bearing,item.native_wind_speed)}</span>
       <span class="chance"> ${this.measure(item.precipitation_probability,'%')}${this.accumulation(item) ? `<span class="accumulation">${escape(this.accumulation(item))}</span>` : ''}</span></button>`).join('')}</div>`
-      : '<p class="empty">Forecast unavailable</p>';
+      : `<p class="empty">${escape(this.t("Forecast unavailable"))}</p>`;
     this.trendValues = periods.map(item => item.native_temperature);
     const trend = this.$('temperature-trend');
     trend.setAttribute('aria-label',mode === 'daily' ? 'Daily high temperature trend' : 'Hourly temperature trend');
     trend.title = trend.getAttribute('aria-label');
     this.drawTemperatureTrend();
-    this.$('status').textContent = current.updated_at ? (fresh ? 'Updated ' : 'Stale · last update ') + this.time(current.updated_at) : '';
+    this.$('status').textContent = current.updated_at ? (fresh ? this.t('Updated') : this.t('Last available data')) + ' ' + this.time(current.updated_at) : '';
     this.$('trek-time').textContent = selected
       ? this.date(new Date(), {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
         + (current.updated_at ? ' · ' + this.$('status').textContent : '') : '';
@@ -588,7 +617,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     const record = kind === 'current' ? weather?.current : weather?.[kind]?.[index];
     if (!record) return;
     this.reading = {kind,record,location:this.data.selected?.name,fresh:this.data.fresh};
-    this.$('reading-title').textContent = {current:'Current conditions',hourly:'Hourly forecast',daily:'Daily forecast'}[kind];
+    this.$('reading-title').textContent = {current:this.t('Current conditions'),hourly:this.t('Hourly forecast'),daily:this.t('Daily forecast')}[kind];
     const timestamp = kind === 'current' ? record.observed_at : record.datetime;
     const date = timestamp ? this.date(timestamp,{weekday:'long',month:'short',day:'numeric',
       ...(kind === 'daily' ? {} : {hour:'numeric',minute:'2-digit',timeZoneName:'short'})}) : '';
@@ -615,30 +644,30 @@ class AtmosphereWeatherCard extends HTMLElement {
     const direction = this.compass(bearing,wind);
     const timestamp = value => value ? this.date(value,{weekday:'short',hour:'numeric',minute:'2-digit'}) : null;
     return [
-      ['condition','Conditions',r.condition === 'partlycloudy' ? 'Partly cloudy' : r.condition?.replaceAll('-',' ')],
-      ['temp',kind === 'daily' ? 'High temperature' : 'Temperature',temp(current ? r.temperature_2m : r.native_temperature)],
-      ['feels','Feels like',temp(r.apparent_temperature)],
-      ['high','Forecast high',temp(r.temperature_high)],
-      ['low',current ? 'Forecast low' : 'Low temperature',temp(current ? r.temperature_low : r.native_templow)],
-      ['humidity','Humidity',measure(r.relative_humidity_2m,'%')],
-      ['pressure','Pressure',measure(r.pressure_msl,this.imperial ? 'inHg' : 'hPa',this.imperial ? .02953 : 1,this.imperial ? 2 : 1)],
-      ['wind','Wind speed',wind == null ? null : this.wind(wind)],
-      ['gusts','Wind gusts',r.wind_gusts_10m == null ? null : this.wind(r.wind_gusts_10m)],
-      ['direction','Wind direction',direction ? direction + ' · ' + Math.round(bearing) + '°' : null],
-      ['precipChance',current ? 'Next hour precipitation chance' : kind === 'daily' ? 'Peak precipitation chance' : 'Precipitation chance',
+      ['condition',this.t('Conditions'),r.condition ? this.conditionLabel(r.condition) : null],
+      ['temp',kind === 'daily' ? this.t('High temperature') : this.t('Temperature'),temp(current ? r.temperature_2m : r.native_temperature)],
+      ['feels',this.t('Feels like'),temp(r.apparent_temperature)],
+      ['high',this.t('Forecast high'),temp(r.temperature_high)],
+      ['low',current ? this.t('Forecast low') : this.t('Low temperature'),temp(current ? r.temperature_low : r.native_templow)],
+      ['humidity',this.t('Humidity'),measure(r.relative_humidity_2m,'%')],
+      ['pressure',this.t('Pressure'),measure(r.pressure_msl,this.imperial ? 'inHg' : 'hPa',this.imperial ? .02953 : 1,this.imperial ? 2 : 1)],
+      ['wind',this.t('Wind speed'),wind == null ? null : this.wind(wind)],
+      ['gusts',this.t('Wind gusts'),r.wind_gusts_10m == null ? null : this.wind(r.wind_gusts_10m)],
+      ['direction',this.t('Wind direction'),direction ? direction + ' · ' + Math.round(bearing) + '°' : null],
+      ['precipChance',current ? this.t('Next hour precipitation chance') : kind === 'daily' ? this.t('Peak precipitation chance') : this.t('Precipitation chance'),
         measure(current ? r.next_precipitation : r.precipitation_probability,'%')],
-      ['precipAmount',current ? 'Precipitation in current interval' : 'Precipitation accumulation',amount(current ? r.precipitation : r.native_precipitation)],
-      ['snow','Snowfall depth',amount(r.snowfall_cm,true)],
-      ['cloud','Cloud cover',measure(r.cloud_cover,'%')],
-      ['uv',current ? 'Next hour UV index' : 'UV index',Number.isFinite(r.uv_index) ? r.uv_index : null],
-      ['visibility',current ? 'Next hour visibility' : 'Visibility',measure(r.visibility,this.imperial ? 'mi' : 'km',this.imperial ? 1/1609.344 : .001,1)],
-      ['daylight','Daylight',r.is_day == null ? null : r.is_day ? 'Yes' : 'No'],
-      ['freezing','At or below freezing',current && Number.isFinite(r.temperature_2m) ? (r.temperature_2m <= 0 ? 'Yes' : 'No') : null],
-      ['expected','Precipitation expected next hour',current && Number.isFinite(r.next_precipitation) ? (r.next_precipitation >= 50 ? 'Yes' : 'No') : null],
-      ['sunrise',current ? 'Next sunrise' : 'Sunrise',timestamp(r.sunrise)],
-      ['sunset',current ? 'Next sunset' : 'Sunset',timestamp(r.sunset)],
-      ['interval','Precipitation observation interval',measure(r.interval,'min',1/60,1)],
-      ['updated','Last successful update',timestamp(r.updated_at)],
+      ['precipAmount',current ? this.t('Precipitation in current interval') : this.t('Precipitation accumulation'),amount(current ? r.precipitation : r.native_precipitation)],
+      ['snow',this.t('Snowfall depth'),amount(r.snowfall_cm,true)],
+      ['cloud',this.t('Cloud cover'),measure(r.cloud_cover,'%')],
+      ['uv',current ? this.t('Next hour UV index') : this.t('UV index'),Number.isFinite(r.uv_index) ? r.uv_index : null],
+      ['visibility',current ? this.t('Next hour visibility') : this.t('Visibility'),measure(r.visibility,this.imperial ? 'mi' : 'km',this.imperial ? 1/1609.344 : .001,1)],
+      ['daylight',this.t('Daylight'),r.is_day == null ? null : r.is_day ? this.t('Yes') : this.t('No')],
+      ['freezing',this.t('At or below freezing'),current && Number.isFinite(r.temperature_2m) ? (r.temperature_2m <= 0 ? this.t('Yes') : this.t('No')) : null],
+      ['expected',this.t('Precipitation expected next hour'),current && Number.isFinite(r.next_precipitation) ? (r.next_precipitation >= 50 ? this.t('Yes') : this.t('No')) : null],
+      ['sunrise',current ? this.t('Next sunrise') : this.t('Sunrise'),timestamp(r.sunrise)],
+      ['sunset',current ? this.t('Next sunset') : this.t('Sunset'),timestamp(r.sunset)],
+      ['interval',this.t('Precipitation observation interval'),measure(r.interval,'min',1/60,1)],
+      ['updated',this.t('Last successful update'),timestamp(r.updated_at)],
     ];
   }
 
@@ -655,7 +684,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     const list = this.$('reading-list');
     list.innerHTML = visible.map(([,label,value]) =>
       `<div><dt>${escape(label)}</dt><dd>${escape(value)}</dd></div>`).join('');
-    if (!visible.length) list.innerHTML = '<div><dt>No readings to show</dt><dd>⚙</dd></div>';
+    if (!visible.length) list.innerHTML = `<div><dt>${escape(this.t('No readings to show'))}</dt><dd>⚙</dd></div>`;
   }
 
   openReadingSettings() {
@@ -704,7 +733,9 @@ class AtmosphereWeatherCard extends HTMLElement {
     }
     const first = items[0];
     banner.dataset.kind = first.kind;
-    banner.innerHTML = `<strong>${first.source === 'preview' ? 'Test warning' : escape(first.kind)}</strong><span>${escape(first.title)}</span><b>${items.length > 1 ? '+' + (items.length - 1) : '›'}</b>`;
+    const alertKinds = {warning:'Warning',watch:'Watch',advisory:'Advisory'};
+    const alertKind = first.source === 'preview' ? this.t('Test warning') : this.t(alertKinds[first.kind] || first.kind);
+    banner.innerHTML = `<strong>${escape(alertKind)}</strong><span>${escape(first.title)}</span><b>${items.length > 1 ? '+' + (items.length - 1) : '›'}</b>`;
     const agencies = {ECCC:['Environment and Climate Change Canada','https://weather.gc.ca/warnings/'],
       NWS:['National Weather Service','https://www.weather.gov/alerts']};
     this.$('alerts-list').innerHTML = items.map(item => {
@@ -712,7 +743,7 @@ class AtmosphereWeatherCard extends HTMLElement {
         <p class="alert-description">${escape(item.description)}</p></article>`;
       const [name,url] = agencies[item.source] || ['Official weather agency',''];
       return `<article><h3>${escape(item.title)}</h3>
-        <p>${escape(item.area)} · Expires ${escape(this.date(item.expires,{weekday:'short',hour:'numeric',minute:'2-digit',timeZoneName:'short'}))}</p>
+        <p>${escape(item.area)} · ${escape(this.t('Expires'))} ${escape(this.date(item.expires,{weekday:'short',hour:'numeric',minute:'2-digit',timeZoneName:'short'}))}</p>
         <p class="alert-description">${escape(item.description)}</p>
         <a href="${url}" target="_blank" rel="noopener">${name}</a></article>`;
     }).join('');
@@ -746,7 +777,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     const location = this.data?.selected;
     const frame = this.frames[this.frameIndex];
     if (!location || !this.data.radar || !frame) {
-      host.innerHTML = `<h2 class="radar-title">Precipitation radar</h2><p class="empty">${this.data && !this.data.radar ? 'Radar disabled in integration settings' : 'Recent radar unavailable'}</p>`;
+      host.innerHTML = `<h2 class="radar-title">${escape(this.t("Precipitation radar"))}</h2><p class="empty">${this.data && !this.data.radar ? this.t('Radar disabled in integration settings') : this.t('Recent radar unavailable')}</p>`;
       return;
     }
     if (this.radarGesture?.location === location.id) return;
@@ -755,7 +786,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     if (this.radarCenter?.location !== location.id) this.radarCenter = {...home,location:location.id};
     const center = this.radarCenter;
     const zoom = this.radarZoom ?? 6;
-    const signature = `${location.id}:${frame.time}:${this.frames.length}:${zoom}:${center.x}:${center.y}:${host.clientWidth}:${host.clientHeight}`;
+    const signature = `${this.language}:${location.id}:${frame.time}:${this.frames.length}:${zoom}:${center.x}:${center.y}:${host.clientWidth}:${host.clientHeight}`;
     if (host.firstElementChild?.dataset.signature === signature) {
       this.drawWindRose();
       return;
@@ -786,22 +817,22 @@ class AtmosphereWeatherCard extends HTMLElement {
     const homeX = ((home.x-center.x+1.5)%1-.5)*worldPixels;
     const homeY = (home.y-center.y)*worldPixels;
     host.innerHTML = `<div class="radar-content" data-signature="${signature}">
-      <div class="heading radar-heading"><h2 class="radar-title">Precipitation radar</h2>
+      <div class="heading radar-heading"><h2 class="radar-title">${escape(this.t("Precipitation radar"))}</h2>
         <div class="radar-tools" role="group" aria-label="Radar map controls">
-          <button type="button" id="wind-rose-toggle" aria-pressed="false">Wind rose</button>
-          <button type="button" id="radar-out" aria-label="Zoom out radar" ${zoom <= 3 ? 'disabled' : ''}>−</button>
-          <button type="button" id="radar-in" aria-label="Zoom in radar" ${zoom >= 10 ? 'disabled' : ''}>+</button>
-          <button type="button" id="radar-center" aria-label="Recenter radar" title="Recenter radar">⌖</button>
+          <button type="button" id="wind-rose-toggle" aria-pressed="false">${escape(this.t("Wind rose"))}</button>
+          <button type="button" id="radar-out" aria-label="${escape(this.t("Zoom out radar"))}" ${zoom <= 3 ? 'disabled' : ''}>−</button>
+          <button type="button" id="radar-in" aria-label="${escape(this.t("Zoom in radar"))}" ${zoom >= 10 ? 'disabled' : ''}>+</button>
+          <button type="button" id="radar-center" aria-label="${escape(this.t("Recenter radar"))}" title="${escape(this.t("Recenter radar"))}">⌖</button>
         </div>
       </div>
       <div class="radar-map-area">
         <div class="map" role="img" aria-label="Recent observed precipitation near ${escape(location.name)}"><div class="radar-plane">${layers.join('')}<span class="pin" style="left:calc(50% + ${homeX}px);top:calc(50% + ${homeY}px)"></span></div></div>
-        <aside class="wind-rose" hidden><strong>Wind · next 24 hours</strong>
+        <aside class="wind-rose" hidden><strong>${escape(this.t("Wind · next 24 hours"))}</strong>
           <canvas width="176" height="176" role="img" aria-label="Forecast wind rose"></canvas>
           <small class="wind-rose-key"></small>
         </aside>
       </div>
-      <div class="radar-controls"><input type="range" id="radar-time" min="0" max="${this.frames.length - 1}" value="${this.frameIndex}" aria-label="Observed radar time">
+      <div class="radar-controls"><input type="range" id="radar-time" min="0" max="${this.frames.length - 1}" value="${this.frameIndex}" aria-label="${escape(this.t("Observed radar time"))}">
       <span>${this.time(frame.time * 1000)}</span></div>
       <small><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a> ·
       <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>${zoom > 7 ? ' · Radar enlarged' : ''} <span class="radar-tile-status" role="status"></span></small></div>`;
@@ -926,7 +957,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     const key = rose.querySelector('.wind-rose-key');
     canvas.hidden = !sampleCount;
     if (!sampleCount) {
-      key.textContent = 'Wind forecast unavailable';
+      key.textContent = this.t('Wind forecast unavailable');
       return;
     }
     const totals = sectors.map(bands => bands.reduce((sum,count) => sum + count,0));
@@ -975,8 +1006,8 @@ class AtmosphereWeatherCard extends HTMLElement {
   renderAppearanceSettings() {
     const content = this.$('appearance-settings');
     content.innerHTML = `<div class="themes">${themes.map(([id,name,bg,,accent]) =>
-      `<button data-theme-choice="${id}" aria-pressed="${this.theme === id}"><i style="background:${bg};border-color:${accent}"></i>${name}</button>`).join('')}</div>
-      <label class="units">Units <select id="units" aria-label="Units"><option value="metric">Metric</option><option value="imperial">Imperial</option></select></label>`;
+      `<button data-theme-choice="${id}" aria-pressed="${this.theme === id}"><i style="background:${bg};border-color:${accent}"></i>${escape(this.t(name))}</button>`).join('')}</div>
+      <label class="units">${escape(this.t("Units"))} <select id="units" aria-label="Units"><option value="metric">${escape(this.t("Metric"))}</option><option value="imperial">${escape(this.t("Imperial"))}</option></select></label>`;
     content.querySelectorAll('[data-theme-choice]').forEach(button => button.onclick = () => {
       this.theme = button.dataset.themeChoice;
       this.write('theme',this.theme);
@@ -998,8 +1029,8 @@ class AtmosphereWeatherCard extends HTMLElement {
     const locations = this.data?.locations || [];
     const admin = this._hass?.user?.is_admin;
     content.innerHTML = `<ul class="locations">${locations.map(location => `<li><span>${escape(location.name)}</span>
-      ${admin ? `<button data-edit="${escape(location.id)}">Edit</button>` : ''}</li>`).join('')}</ul>
-      ${admin ? '<button id="add">Add location</button><div id="editor"></div>' : '<p>Ask a Home Assistant administrator to manage locations.</p>'}`;
+      ${admin ? `<button data-edit="${escape(location.id)}">${escape(this.t("Edit"))}</button>` : ''}</li>`).join('')}</ul>
+      ${admin ? `<button id="add">${escape(this.t("Add location"))}</button><div id="editor"></div>` : '<p>Ask a Home Assistant administrator to manage locations.</p>'}`;
     if (!admin) return;
     this.$('add').onclick = () => this.locationForm();
     content.querySelectorAll('[data-edit]').forEach(button => button.onclick = () =>
@@ -1016,7 +1047,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     if (climate) {
       const temperature = climate.attributes.current_temperature ?? climate.attributes.temperature;
       const unit = this._hass.config?.unit_system?.temperature || '';
-      const label = temperature == null ? 'Thermostat' : `Thermostat · ${temperature}${unit}`;
+      const label = temperature == null ? this.t('Thermostat') : `${this.t('Thermostat')} · ${temperature}${unit}`;
       if (thermostat.textContent !== label) thermostat.textContent = label;
     }
     const camera = states?.[location?.camera_entity];
@@ -1051,7 +1082,7 @@ class AtmosphereWeatherCard extends HTMLElement {
               player.src = latest.href;
             });
           } else player.alt = '';
-          player.addEventListener('error',() => { media.textContent = 'Camera unavailable'; },{once:true});
+          player.addEventListener('error',() => { media.textContent = this.t('Camera unavailable'); },{once:true});
           player.src = url;
           media.append(player);
         }
@@ -1077,10 +1108,10 @@ class AtmosphereWeatherCard extends HTMLElement {
       image.alt = '';
       const token = camera.attributes.access_token;
       if (!token) {
-        media.textContent = 'Camera unavailable';
+        media.textContent = this.t('Camera unavailable');
         return;
       }
-      image.addEventListener('error',() => { media.textContent = 'Camera unavailable'; },{once:true});
+      image.addEventListener('error',() => { media.textContent = this.t('Camera unavailable'); },{once:true});
       image.src = `/api/camera_proxy_stream/${encodeURIComponent(camera.entity_id)}?token=${encodeURIComponent(token)}`;
       media.append(image);
     }
@@ -1089,29 +1120,29 @@ class AtmosphereWeatherCard extends HTMLElement {
   entityOptions(domain,selected) {
     const entities = Object.values(this._hass?.states || {}).filter(item => item.entity_id.startsWith(domain + '.'));
     entities.sort((a,b) => (a.attributes.friendly_name || a.entity_id).localeCompare(b.attributes.friendly_name || b.entity_id));
-    return '<option value="">None</option>' + entities.map(item =>
+    return `<option value="">${escape(this.t("None"))}</option>` + entities.map(item =>
       `<option value="${escape(item.entity_id)}" ${item.entity_id === selected ? 'selected' : ''}>${escape(item.attributes.friendly_name || item.entity_id)} (${escape(item.entity_id)})</option>`).join('');
   }
 
   locationForm(location) {
     const box = this.$('editor');
     box.innerHTML = `
-      ${location ? '' : '<form id="search"><label>City or postal code <input name="query" required minlength="2" maxlength="100"></label><button>Search</button></form><div id="results"></div>'}
+      ${location ? '' : `<form id="search"><label>${escape(this.t("City or postal code"))} <input name="query" required minlength="2" maxlength="100"></label><button>${escape(this.t("Search"))}</button></form><div id="results"></div>`}
       <form id="save" class="location-form">
-        <label>Name <input name="name" maxlength="80" required value="${escape(location?.name)}"></label>
+        <label>${escape(this.t("Name"))} <input name="name" maxlength="80" required value="${escape(location?.name)}"></label>
         <div class="coordinates">
-        <label>Latitude <input name="latitude" type="number" step="any" min="-90" max="90" required value="${escape(location?.latitude)}"></label>
-        <label>Longitude <input name="longitude" type="number" step="any" min="-180" max="180" required value="${escape(location?.longitude)}"></label>
+        <label>${escape(this.t("Latitude"))} <input name="latitude" type="number" step="any" min="-90" max="90" required value="${escape(location?.latitude)}"></label>
+        <label>${escape(this.t("Longitude"))} <input name="longitude" type="number" step="any" min="-180" max="180" required value="${escape(location?.longitude)}"></label>
         </div>
-        <label>Time zone <input name="timezone" required placeholder="Europe/Paris" value="${escape(location?.timezone || this._hass?.config?.time_zone)}"></label>
-        <label>Home Assistant camera <select name="camera_entity">${this.entityOptions('camera',location?.camera_entity)}</select></label>
-        <label>Or direct camera URL <input name="camera_url" type="url" maxlength="2048" placeholder="https://…" value="${escape(location?.camera_url)}"></label>
-        <label>Direct camera format <select name="camera_video">
-          <option value="false">MJPEG or image</option>
-          <option value="true" ${location?.camera_video ? 'selected' : ''}>Browser video (MP4 or native HLS)</option>
+        <label>${escape(this.t("Time zone"))} <input name="timezone" required placeholder="Europe/Paris" value="${escape(location?.timezone || this._hass?.config?.time_zone)}"></label>
+        <label>${escape(this.t("Home Assistant camera"))} <select name="camera_entity">${this.entityOptions('camera',location?.camera_entity)}</select></label>
+        <label>${escape(this.t("Or direct camera URL"))} <input name="camera_url" type="url" maxlength="2048" placeholder="https://…" value="${escape(location?.camera_url)}"></label>
+        <label>${escape(this.t("Direct camera format"))} <select name="camera_video">
+          <option value="false">${escape(this.t("MJPEG or image"))}</option>
+          <option value="true" ${location?.camera_video ? 'selected' : ''}>${escape(this.t("Browser video (MP4 or native HLS)"))}</option>
         </select></label>
-        ${location?.is_home ? `<label>Home thermostat <select name="thermostat_entity">${this.entityOptions('climate',location.thermostat_entity)}</select></label>` : ''}
-        <div class="actions"><button>Save location</button>${location ? '<button id="remove" type="button">Remove</button>' : ''}</div>
+        ${location?.is_home ? `<label>${escape(this.t("Home thermostat"))} <select name="thermostat_entity">${this.entityOptions('climate',location.thermostat_entity)}</select></label>` : ''}
+        <div class="actions"><button>${escape(this.t("Save location"))}</button>${location ? `<button id="remove" type="button">${escape(this.t("Remove"))}</button>` : ''}</div>
       </form>`;
     const form = this.$('save');
     const notice = this.$('notice');
@@ -1119,7 +1150,7 @@ class AtmosphereWeatherCard extends HTMLElement {
       event.preventDefault();
       const search = event.target;
       const results = this.$('results');
-      notice.textContent = 'Searching…';
+      notice.textContent = this.t('Searching…');
       try {
         const matches = await this.call('search',{query:new FormData(search).get('query')});
         if (!search.isConnected) return;
@@ -1137,7 +1168,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     };
     const mutate = async (action,data) => {
       form.querySelectorAll('button').forEach(button => button.disabled = true);
-      notice.textContent = 'Saving…';
+      notice.textContent = this.t('Saving…');
       try {
         const changed = await this.call(action,data);
         if (changed?.location) {
@@ -1148,7 +1179,7 @@ class AtmosphereWeatherCard extends HTMLElement {
         this.radarKey = null;
         await this.refresh(8);
         this.renderLocationSettings();
-        notice.textContent = action === 'remove_location' ? 'Location removed' : 'Location saved';
+        notice.textContent = action === 'remove_location' ? this.t('Location removed') : this.t('Location saved');
       } catch (error) { notice.textContent = error.message || 'Unable to save'; }
       finally { form.querySelectorAll('button').forEach(button => button.disabled = false); }
     };
@@ -1163,7 +1194,7 @@ class AtmosphereWeatherCard extends HTMLElement {
       const button = event.currentTarget;
       if (button.dataset.confirm) return mutate('remove_location',{location:location.id});
       button.dataset.confirm = 'true';
-      button.textContent = 'Confirm removal';
+      button.textContent = this.t('Confirm removal');
       notice.textContent = 'Automations using this location’s entities will lose their source.';
     };
   }
