@@ -1498,13 +1498,13 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
  main[data-tab=radar]{grid-template-rows:auto minmax(104px,.3fr) calc(63px + var(--alert-height,0px)) minmax(194px,1fr) auto}
 }
 
-/* Daily snow totals must not change the height of the framed icon. */
-main[data-theme=trek] .daily .period .chance{
+/* Reserve room for precipitation totals across all framed forecast columns. */
+main[data-theme=trek] .period .chance{
  line-height:1.15;
  min-height:calc(2.3em + 6px);
  flex:none;
 }
-main[data-theme=trek] .daily .period .chance .accumulation{
+main[data-theme=trek] .period .chance .accumulation{
  white-space:nowrap;
  line-height:1.15;
 }
