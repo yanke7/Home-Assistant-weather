@@ -41,6 +41,48 @@ function lunarPhase(now) {
   return {angle, fraction:(1 - Math.cos(angle)) / 2, name:moonNames[index]};
 }
 
+// An illustrated lunar surface, kept fixed as the phase boundary moves.
+const lunarPlains = [
+  [-43,-35,32,50,-.5],[-18,-62,29,24,-.3],[21,-47,24,19,.4],
+  [42,-15,39,28,.55],[28,24,24,37,-.48],[-29,30,19,28,.72],
+  [72,18,17,15,.4],[-67,14,20,32,.25],
+];
+
+function lunarSurface(ctx, reflected, lit) {
+  ctx.save();
+  if (reflected) ctx.scale(-1,1);
+  ctx.fillStyle = lit ? '#40516b55' : '#0c152363';
+  for (const [x,y,rx,ry,rotation] of lunarPlains) {
+    ctx.beginPath();
+    ctx.ellipse(x,y,rx,ry,rotation,0,2*Math.PI);
+    ctx.fill();
+  }
+  let seed = 174;
+  const random = () => ((seed = (Math.imul(seed,1664525) + 1013904223) >>> 0) / 2**32);
+  const craters = [[-22,79,15],[47,64,12],[-71,-6,10],[76,-46,10],[3,43,7]];
+  for (let i=0; i<42; i++) {
+    const angle = random() * 2 * Math.PI;
+    const distance = Math.sqrt(random()) * 118;
+    craters.push([Math.cos(angle)*distance,Math.sin(angle)*distance,2+random()*5]);
+  }
+  for (const [x,y,r] of craters) {
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,2*Math.PI);
+    ctx.fillStyle = lit ? '#47597549' : '#121c2b80';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,Math.PI);
+    ctx.strokeStyle = lit ? '#f7fcffb0' : '#819ac33c';
+    ctx.lineWidth = r > 8 ? 2.3 : 1.1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x,y,r,Math.PI,2*Math.PI);
+    ctx.strokeStyle = lit ? '#313e5880' : '#080e1990';
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawMoon(orb, latitude, now) {
   const {angle, fraction, name} = lunarPhase(now);
   const label = name + ' · ' + Math.round(fraction * 100) + '% illuminated';
@@ -63,6 +105,10 @@ function drawMoon(orb, latitude, now) {
   ctx.arc(0,0,radius,0,2*Math.PI);
   ctx.fillStyle = '#263244';
   ctx.fill();
+  ctx.save();
+  ctx.clip();
+  lunarSurface(ctx,angle > Math.PI,false);
+  ctx.restore();
 
   // Trace the right limb and return along the projected day/night boundary.
   ctx.beginPath();
@@ -74,7 +120,13 @@ function drawMoon(orb, latitude, now) {
   light.addColorStop(0,'#f3f7fa');
   light.addColorStop(1,'#b8cde1');
   ctx.fillStyle = light;
-  if (fraction > .0001) ctx.fill();
+  if (fraction > .0001) {
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    lunarSurface(ctx,angle > Math.PI,true);
+    ctx.restore();
+  }
   orb.append(canvas);
 }
 
@@ -699,6 +751,11 @@ main[data-theme=trek]{
 .hero .orb.lunar-orb{background:#263244;box-shadow:0 0 26px #adc9ee55;z-index:0;pointer-events:auto}
 .hero .orb.lunar-orb canvas{display:block;position:static;width:100%;height:100%;border-radius:50%}
 .hero :is(.current,.summary){position:relative;z-index:1}
+
+main[data-theme=trek] .hero .orb:not(.lunar-orb){
+ background:radial-gradient(circle at 34% 34%,#fff2bc,#ffce69 68%,#f79a40);
+ box-shadow:0 0 0 18px #f3c96921,0 0 48px #f3c96970;
+}
 
 `;
 customElements.define('atmosphere-weather-card', AtmosphereWeatherCard);
