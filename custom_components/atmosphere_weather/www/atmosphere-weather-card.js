@@ -158,12 +158,26 @@ class AtmosphereWeatherCard extends HTMLElement {
   }
   connectedCallback() {
     this.build();
+    this.fitViewport = () => {
+      const viewport = window.visualViewport;
+      const bottom = viewport ? viewport.height + viewport.offsetTop : window.innerHeight;
+      const top = this.getBoundingClientRect().top;
+      if (this.getClientRects().length && bottom > top) {
+        this.style.setProperty('--atmosphere-available-height', Math.floor(bottom - top) + 'px');
+      }
+    };
+    window.addEventListener('resize', this.fitViewport);
+    window.visualViewport?.addEventListener('resize', this.fitViewport);
+    this.viewportFrame = requestAnimationFrame(this.fitViewport);
     this.startSky();
     this.refresh();
     this.timer = setInterval(() => this.refresh(), 60000);
   }
   disconnectedCallback() {
     clearInterval(this.timer);
+    cancelAnimationFrame(this.viewportFrame);
+    window.removeEventListener('resize', this.fitViewport);
+    window.visualViewport?.removeEventListener('resize', this.fitViewport);
     this.request++;
     this.sky?.dispose();
     this.sky = null;
@@ -380,7 +394,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     const periods = (weather?.[mode] || []).slice(0,mode === 'daily' ? 7 : 8);
     this.$('periods').innerHTML = periods.length ? `<div class="periods ${mode}">${periods.map(item => `
       <div class="period"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : {hour:'numeric'})}</small>
-      <span class="icon" role="img" aria-label="${escape(item.condition || 'Unknown condition')}">${icons[item.condition] || '◌'}</span>
+      <span class="icon" role="img" aria-label="${escape(item.condition || 'Unknown condition')}"><i aria-hidden="true">${icons[item.condition] || '◌'}</i></span>
       <strong>${this.temp(item.native_temperature)}</strong>
       <span>${mode === 'daily' ? 'Low ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed) + ' ' + this.compass(item.wind_bearing,item.native_wind_speed)}</span>
       <span class="chance"> ${this.measure(item.precipitation_probability,'%')}${this.accumulation(item) ? `<span class="accumulation">${escape(this.accumulation(item))}</span>` : ''}</span></div>`).join('')}</div>`
@@ -811,6 +825,29 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
 @container(max-width:700px){
  .hero.has-briefing .temperature{font-size:clamp(36px,7.5vh,54px)}
  .period .chance .accumulation{line-height:1.05}
+}
+
+/* Keep the framed icon area flexible while giving the symbol its own readable size. */
+.period .icon i{display:block;font:normal 400 clamp(32px,4.2cqw,64px)/1 system-ui,sans-serif}
+.forecast .tabs button{min-height:43px;padding:8px 16px;font-size:14px;line-height:1.1}
+@container(max-width:700px){
+ main,main[data-theme=trek],main[data-theme=appearance]{
+   height:var(--atmosphere-available-height,calc(100dvh - var(--header-height,56px)));
+   min-height:465px;gap:6px;grid-template-rows:auto minmax(104px,.65fr) 63px minmax(194px,1fr) auto;
+ }
+ main[data-theme=trek] header{min-height:56px}
+ main:not([data-theme=trek]) header{min-height:38px}
+ .outlook{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:auto}
+ .forecast{height:auto;gap:5px}
+ .forecast .tabs{gap:4px}
+ .forecast .tabs button{min-height:40px;padding:6px 9px;font-size:12px}
+ .period{gap:3px}
+ .period .icon i{font-size:clamp(24px,8cqw,44px)}
+ main[data-tab=radar] .radar,main[data-theme=trek][data-tab=radar] .radar{top:55px}
+}
+@container(max-width:360px){
+ .forecast .tabs button{padding-inline:7px}
+ main[data-theme=trek] .forecast h2{font-size:13px}
 }
 
 `;
