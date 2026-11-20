@@ -65,7 +65,14 @@ class AtmosphereWeather(SingleCoordinatorWeatherEntity):
         return self._current("cloud_cover")
 
     def _async_forecast_daily(self):
-        return (self.coordinator.data or {}).get("daily")
+        return self._native_forecast("daily")
 
     def _async_forecast_hourly(self):
-        return (self.coordinator.data or {}).get("hourly")
+        return self._native_forecast("hourly")
+
+    def _native_forecast(self, key):
+        rows = (self.coordinator.data or {}).get(key)
+        if rows is None:
+            return None
+        return [{field: value for field, value in row.items() if field != "snowfall_cm"}
+                for row in rows]

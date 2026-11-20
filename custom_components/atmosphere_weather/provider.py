@@ -5,8 +5,8 @@ from zoneinfo import ZoneInfo
 
 CURRENT = ("temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,"
            "wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation,weather_code,is_day,cloud_cover")
-HOURLY = "temperature_2m,weather_code,is_day,precipitation_probability,precipitation,wind_speed_10m,visibility,uv_index"
-DAILY = "temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,precipitation_sum,sunrise,sunset"
+HOURLY = "temperature_2m,weather_code,is_day,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m,snowfall,visibility,uv_index"
+DAILY = "temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,precipitation_sum,snowfall_sum,sunrise,sunset"
 CONDITIONS = {
     0: "sunny", 1: "partlycloudy", 2: "partlycloudy", 3: "cloudy",
     45: "fog", 48: "fog", 51: "rainy", 53: "rainy", 55: "rainy",
@@ -80,5 +80,7 @@ def forecast(row, daily):
         "native_templow": number(row.get("temperature_2m_min")),
         "native_precipitation": number(row.get("precipitation_sum" if daily else "precipitation")),
         "precipitation_probability": number(row.get("precipitation_probability_max" if daily else "precipitation_probability")),
+        "wind_bearing": number(row.get("wind_direction_10m")),
+        "snowfall_cm": number(row.get("snowfall_sum" if daily else "snowfall")),
         "native_wind_speed": number(row.get("wind_speed_10m")),
     }

@@ -276,6 +276,47 @@ class AtmosphereWeatherCard extends HTMLElement {
   time(value) { return this.date(value,{hour:'numeric',minute:'2-digit'}); }
   wind(value) { return this.measure(value,this.imperial ? 'mph' : 'km/h',this.imperial ? 0.621371 : 1); }
 
+  compass(bearing, speed) {
+    if (!Number.isFinite(bearing) || !Number.isFinite(speed) || speed <= 0) return '';
+    const directions = ['N','NE','E','SE','S','SW','W','NW'];
+    return directions[Math.round(((bearing % 360 + 360) % 360) / 45) % 8];
+  }
+
+  accumulation(item) {
+    const snow = item.snowfall_cm > 0;
+    const amount = snow ? item.snowfall_cm : item.native_precipitation;
+    if (!Number.isFinite(amount) || amount <= 0) return '';
+    const value = this.imperial ? amount / (snow ? 2.54 : 25.4) : amount;
+    const digits = this.imperial ? 2 : 1;
+    const formatted = value.toFixed(digits);
+    const unit = this.imperial ? 'in' : snow ? 'cm' : 'mm';
+    return (+formatted === 0 ? '<' + (this.imperial ? '0.01' : '0.1') : +formatted)
+      + ' ' + unit + (snow ? ' snow' : '');
+  }
+
+  briefing(hourly) {
+    const periods = (hourly || []).slice(0,8);
+    if (!periods.length) return '';
+    const wet = periods.find(item => item.precipitation_probability >= 50 && item.datetime);
+    if (wet) {
+      const kind = wet.condition === 'snowy' ? 'Snow'
+        : ['rainy','pouring','lightning-rainy'].includes(wet.condition) ? 'Rain' : 'Precipitation';
+      return kind + ' likely around ' + this.time(wet.datetime) + '.';
+    }
+    const temps = periods.map(item => item.native_temperature).filter(Number.isFinite);
+    if (temps.length < 2) return '';
+    const start = temps[0], end = temps.at(-1);
+    if (Math.abs(end-start) >= 2) {
+      return 'Temperatures ' + (end > start ? 'rise' : 'fall') + ' from '
+        + this.temp(start) + ' to ' + this.temp(end) + ' over the next few hours.';
+    }
+    if (Math.max(...temps) - Math.min(...temps) <= 2) {
+      return 'Temperatures stay near ' + this.temp(start) + ' over the next few hours.';
+    }
+    return 'Temperatures range from ' + this.temp(Math.min(...temps)) + ' to '
+      + this.temp(Math.max(...temps)) + ' over the next few hours.';
+  }
+
   render() {
     const shell = this.$('shell');
     if (!shell) return;
@@ -308,11 +349,14 @@ class AtmosphereWeatherCard extends HTMLElement {
     selector.disabled = !locations.length;
     if (selected) selector.value = selected.id;
     const label = current.condition === 'partlycloudy' ? 'Partly cloudy' : current.condition?.replaceAll('-', ' ');
+    const briefing = fresh ? this.briefing(weather?.hourly) : '';
+    this.$('hero').classList.toggle('has-briefing',Boolean(briefing));
     this.$('hero').dataset.sky = current.sky_period || (current.is_day === 0 ? 'night' : 'day');
     this.updateSky();
     this.$('sky-content').innerHTML = selected ? `<div class="current"><div class="kicker">${escape(selected.name)}</div>
        <div class="temperature">${this.temp(current.temperature_2m)}<sup>${this.imperial ? 'F' : 'C'}</sup></div>
        <span class="trek-feels">Feels like ${this.temp(current.apparent_temperature)}</span><div class="condition">${escape(label || 'Waiting for weather')}</div></div>
+       ${briefing ? `<p class="weather-briefing">${escape(briefing)}</p>` : ''}
        <div class="orb" aria-hidden="true"></div><div class="summary">
        <div>${this.date(new Date(),{weekday:'long',month:'short',day:'numeric'})}</div>
        <strong>H ${this.temp(current.temperature_high)} · L ${this.temp(current.temperature_low)}</strong>
@@ -321,8 +365,9 @@ class AtmosphereWeatherCard extends HTMLElement {
     if (selected && current.is_day === 0) {
       drawMoon(this.$('hero').querySelector('.orb'), selected.latitude, Date.now());
     }
+    const direction = this.compass(current.wind_direction_10m,current.wind_speed_10m);
     const metrics = [
-      ['Wind',this.wind(current.wind_speed_10m)],
+      [direction ? 'Wind · ' + direction : 'Wind',this.wind(current.wind_speed_10m)],
       ['Humidity',this.measure(current.relative_humidity_2m,'%')],
       ['Precipitation chance',this.measure(current.next_precipitation,'%')],
       [current.is_day === 0 ? 'Next sunrise' : 'Next sunset',this.time(current.is_day === 0 ? current.sunrise : current.sunset)],
@@ -337,8 +382,8 @@ class AtmosphereWeatherCard extends HTMLElement {
       <div class="period"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : {hour:'numeric'})}</small>
       <span class="icon" role="img" aria-label="${escape(item.condition || 'Unknown condition')}">${icons[item.condition] || '◌'}</span>
       <strong>${this.temp(item.native_temperature)}</strong>
-      <span>${mode === 'daily' ? 'Low ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed)}</span>
-      <span class="chance">${this.measure(item.precipitation_probability,'%')}</span></div>`).join('')}</div>`
+      <span>${mode === 'daily' ? 'Low ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed) + ' ' + this.compass(item.wind_bearing,item.native_wind_speed)}</span>
+      <span class="chance"> ${this.measure(item.precipitation_probability,'%')}${this.accumulation(item) ? `<span class="accumulation">${escape(this.accumulation(item))}</span>` : ''}</span></div>`).join('')}</div>`
       : '<p class="empty">Forecast unavailable</p>';
     this.$('status').textContent = current.updated_at ? (fresh ? 'Updated ' : 'Stale · last update ') + this.time(current.updated_at) : '';
     this.$('trek-time').textContent = selected
@@ -755,6 +800,17 @@ main[data-theme=trek]{
 main[data-theme=trek] .hero .orb:not(.lunar-orb){
  background:radial-gradient(circle at 34% 34%,#fff2bc,#ffce69 68%,#f79a40);
  box-shadow:0 0 0 18px #f3c96921,0 0 48px #f3c96970;
+}
+
+.weather-briefing{position:absolute;z-index:1;left:33%;right:47%;margin:0;font-size:clamp(11px,1.25cqw,18px);line-height:1.25}
+.period .chance .accumulation{display:block;font-size:.95em;color:inherit}
+@container(max-width:850px){
+ .hero.has-briefing{padding-bottom:36px}
+ .weather-briefing{left:20px;right:16px;bottom:10px;font-size:11px}
+}
+@container(max-width:700px){
+ .hero.has-briefing .temperature{font-size:clamp(36px,7.5vh,54px)}
+ .period .chance .accumulation{line-height:1.05}
 }
 
 `;
