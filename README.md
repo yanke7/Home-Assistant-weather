@@ -40,7 +40,56 @@ Use a unique optional `storage_key` per dashboard card to keep its browser prefe
 
 ### Fishing forecasts
 
-Enable **Settings → Fishing forecasts**, then edit a saved location to select its water type and up to four fish species. Enabled locations show current fishing scores and a **Fishing** tab with the next recommended window, seven daily ratings, and hourly details. Species-specific scores and window entities can trigger Home Assistant automations. The ratings combine weather and solar/lunar activity and use air temperature as a proxy for water temperature.
+Fishing is built into **Atmosphere Weather**. The integration calculates the forecast and updates its Home Assistant entities even when the dashboard is closed.
+
+1. Open **Atmosphere → Settings → Fishing forecasts** and turn on the master switch.
+2. Choose **Edit** beside a saved city or lake. Enable fishing for that location and choose its water type (lake, river, pond, or reservoir).
+3. Select up to four species and choose **Save**. Use a separate saved location with the lake’s coordinates if you fish away from the city.
+4. Select the location in the dashboard header. The current-weather summary shows each species’ score for the current hour. Open **Fishing** beside **Hourly** and **Daily** to see each day’s peak score for every selected species. Tap a day for the daily averages, best three-hour windows, and hourly scores.
+
+**Seven-day Fishing forecast on desktop**
+
+![Seven Fishing forecast columns with peak scores for four fish species](docs/features/fishing-forecast-1440.jpg)
+
+**Fishing forecast on a phone in portrait**
+
+![Seven compact Fishing forecast columns on a phone](docs/features/fishing-forecast-390.jpg)
+
+**Day details pop-up**
+
+![Fishing forecast pop-up with daily averages, peak scores, best windows, and hourly ratings by species](docs/features/fishing-day-details.jpg)
+
+Screenshots use sample data. Ratings combine weather and solar and lunar activity. The calculation uses forecast air temperature as a proxy for water temperature.
+
+#### Get a notification when fishing conditions are good
+
+Under **Settings → Devices & services → Atmosphere Weather**, open the device for your lake and find your species’ **Fishing score now** sensor and **Fishing window active** binary sensor. The integration also creates a **Daily fishing score** sensor and timestamp sensors for the next window’s start and end.
+
+This automation sends a notification when a walleye window opens with a score of at least 7, or when the score reaches 7 during an active window. Replace both example entity IDs with yours and change the notification action to your phone’s service.
+
+```yaml
+alias: Walleye fishing window
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.lake_diefenbaker_walleye_fishing_window_active
+    to: "on"
+  - trigger: numeric_state
+    entity_id: sensor.lake_diefenbaker_walleye_fishing_score_now
+    above: 6
+conditions:
+  - condition: state
+    entity_id: binary_sensor.lake_diefenbaker_walleye_fishing_window_active
+    state: "on"
+  - condition: numeric_state
+    entity_id: sensor.lake_diefenbaker_walleye_fishing_score_now
+    above: 6
+actions:
+  - action: notify.mobile_app_your_phone
+    data:
+      title: Walleye fishing window
+      message: "The window is open at Lake Diefenbaker. Current score is {{ states('sensor.lake_diefenbaker_walleye_fishing_score_now') }}/10."
+mode: single
+```
 
 Species profiles are adapted from [Fishing Assistant](https://github.com/bairnhard/fishing_assistant) under the MIT license.
 
