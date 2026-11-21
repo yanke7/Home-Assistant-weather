@@ -13,6 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .config_flow import LIMIT, clean_location, home, location_key
 from .coordinator import DOMAIN
+from .fishing import FISH_PROFILES, WATER_TYPES
 
 PREFIX = DOMAIN + "/"
 LOCATION = {
@@ -92,6 +93,8 @@ async def snapshot(hass, connection, msg):
         "locations": locations, "selected": selected,
         "weather": coordinator.data if coordinator else None,
         "fresh": bool(coordinator and coordinator.last_update_success and coordinator.data),
+        "fishing_enabled": entry.options.get("fishing_enabled", False),
+        "fish_species": list(FISH_PROFILES),
         "radar": entry.options.get("radar", True) and not entry.options.get("api_key"),
     })
 
@@ -124,6 +127,8 @@ async def save_location(hass, connection, msg):
             "camera_entity", "camera_url", "camera_video", "thermostat_entity",
         } if field in msg})
         data.update(location_controls(hass, controls, is_home))
+        if existing:
+            data.update({key: value for key, value in existing.data.items() if key.startswith("fishing_")})
         if existing is None:
             if len(entry.subentries) >= LIMIT:
                 raise ValueError(f"Save up to {LIMIT} locations.")
@@ -217,6 +222,41 @@ async def alerts(hass, connection, msg):
 
 
 
+@ws.websocket_command({
+    vol.Required("type"): PREFIX + "save_fishing", vol.Required("enabled"): bool,
+    vol.Optional("location"): str, vol.Optional("water"): vol.In(WATER_TYPES),
+    vol.Optional("species"): [vol.In(FISH_PROFILES)],
+})
+@ws.require_admin
+@ws.async_response
+async def save_fishing(hass, connection, msg):
+    entry = loaded(hass)
+    if not entry:
+        connection.send_error(msg["id"], "not_loaded", "Atmosphere Weather is loading.")
+        return
+    if "location" in msg:
+        location = entry.subentries.get(msg["location"])
+        species = list(dict.fromkeys(msg.get("species", [])))
+        if not location or len(species) > 4 or (msg["enabled"] and not species):
+            connection.send_error(msg["id"], "invalid_fishing", "Select one to four species for this location.")
+            return
+        removed = set(location.data.get("fishing_species", [])) - set(species)
+        registry = entity_registry.async_get(hass)
+        for fish in removed:
+            for field in ("current", "daily", "start", "end", "active"):
+                domain = "binary_sensor" if field == "active" else "sensor"
+                entity = registry.async_get_entity_id(domain, DOMAIN, f"{location.subentry_id}_fishing_{fish}_{field}")
+                if entity:
+                    registry.async_remove(entity)
+        hass.config_entries.async_update_subentry(entry, location, data={
+            **location.data, "fishing_enabled": msg["enabled"],
+            "fishing_water": msg.get("water", "lake"), "fishing_species": species,
+        })
+    else:
+        hass.config_entries.async_update_entry(entry, options={**entry.options, "fishing_enabled": msg["enabled"]})
+    connection.send_result(msg["id"])
+
+
 def register(hass):
-    for command in (snapshot, save_location, remove_location, search, radar, alerts):
+    for command in (snapshot, save_location, remove_location, search, radar, alerts, save_fishing):
         ws.async_register_command(hass, command)

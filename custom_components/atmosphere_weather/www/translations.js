@@ -2,6 +2,13 @@ export const languages = {"en": "English", "fr": "Français", "es": "Español", 
 
 // Each row follows the language order above, excluding English (the message key).
 const messages = {
+  "Fishing":["Pêche", "Pesca", "Angeln", "Pangingisda", "मछली पकड़ना", "Vissen", "Fiske", "Pesca", "Wędkarstwo", "Fiskeri", "Fiske"],
+  "Fishing forecasts":["Prévisions de pêche", "Pronóstico de pesca", "Angelprognosen", "Pagtataya sa pangingisda", "मछली पकड़ने का पूर्वानुमान", "Visverwachting", "Fiskeprognos", "Previsioni di pesca", "Prognoza wędkarska", "Fiskeprognose", "Fiskevarsel"],
+  "Fish species":["Espèces de poissons", "Especies de peces", "Fischarten", "Mga uri ng isda", "मछलियों की प्रजातियाँ", "Vissoorten", "Fiskarter", "Specie di pesci", "Gatunki ryb", "Fiskearter", "Fiskearter"],
+  "Water type":["Type de plan d’eau", "Tipo de agua", "Gewässertyp", "Uri ng katubigan", "जलाशय का प्रकार", "Watertype", "Typ av vatten", "Tipo di acque", "Typ łowiska", "Vandtype", "Vanntype"],
+  "Good fishing now":["Bonnes conditions de pêche", "Buenas condiciones de pesca", "Gute Angelbedingungen", "Magandang mangisda ngayon", "अभी मछली पकड़ने के लिए अच्छे हालात", "Goede visomstandigheden", "Bra fiskeförhållanden", "Buone condizioni di pesca", "Dobre warunki do wędkowania", "Gode fiskeforhold", "Gode fiskeforhold"],
+  "Next fishing window":["Prochain créneau de pêche", "Próximo horario de pesca", "Nächstes Angelfenster", "Susunod na oras ng pangingisda", "मछली पकड़ने का अगला समय", "Volgende visperiode", "Nästa fisketillfälle", "Prossima fascia di pesca", "Najbliższa pora na wędkowanie", "Næste fisketidsrum", "Neste fiskeperiode"],
+
   "Save":["Enregistrer", "Guardar", "Speichern", "I-save", "सहेजें", "Opslaan", "Spara", "Salva", "Zapisz", "Gem", "Lagre"],
   "Cancel":["Annuler", "Cancelar", "Abbrechen", "Kanselahin", "रद्द करें", "Annuleren", "Avbryt", "Annulla", "Anuluj", "Annuller", "Avbryt"],
   "Sunrise / sunset":["Lever / coucher du soleil", "Amanecer / atardecer", "Sonnenaufgang / Sonnenuntergang", "Pagsikat / paglubog ng araw", "सूर्योदय / सूर्यास्त", "Zonsopkomst / zonsondergang", "Soluppgång / solnedgång", "Alba / tramonto", "Wschód / zachód słońca", "Solopgang / solnedgang", "Soloppgang / solnedgang"],

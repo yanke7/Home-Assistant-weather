@@ -7,6 +7,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .alerts import Alerts
+from .fishing import fishing_forecast
 from .provider import CURRENT, DAILY, HOURLY, normalize
 
 DOMAIN = "atmosphere_weather"
@@ -32,6 +33,9 @@ class WeatherCoordinator(DataUpdateCoordinator):
             "timezone": location["timezone"], "timeformat": "unixtime",
             "current": CURRENT, "hourly": HOURLY, "daily": DAILY, "forecast_days": 7,
         }
+        fishing = self.options.get("fishing_enabled") and location.get("fishing_enabled")
+        if fishing:
+            params["hourly"] += ",cloud_cover,pressure_msl"
         if key:
             params["apikey"] = key
         delay = 0
@@ -50,6 +54,8 @@ class WeatherCoordinator(DataUpdateCoordinator):
             self.failures = min(self.failures + 1, 4)
             self.update_interval = timedelta(seconds=max(delay, min(3600, 300 * 2**self.failures)))
             raise UpdateFailed("Open-Meteo weather is temporarily unavailable") from None
+        if fishing:
+            data["fishing"] = fishing_forecast(payload, location)
         self.failures = 0
         self.update_interval = timedelta(minutes=15)
         return data

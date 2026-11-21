@@ -1,5 +1,5 @@
 import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.39';
-import {languages,translate} from './translations.js?v=0.1.42';
+import {languages,translate} from './translations.js?v=0.1.44';
 
 const boxDefaults = ["windSummary","humidity","precipChance","solar","pressure","gusts"];
 const themes = [
@@ -355,13 +355,14 @@ ${thermostatCSS}</style><main id="shell">
         <p id="reading-context"></p><dl id="reading-list"></dl>
       </dialog>
       <div class="conditions-strip">
+        <button id="fishing-summary" type="button" data-tab="fishing" hidden></button>
         <button id="alert-banner" type="button" hidden aria-haspopup="dialog"></button>
         <section class="metrics" id="metrics" aria-label="Weather details"></section>
       </div>
       <div class="outlook">
         <section class="panel forecast"><div class="heading"><h2 id="forecast-title" data-label="Forecast">Forecast</h2>
           <div class="tabs"><button data-tab="hourly" data-label="Hourly">Hourly</button><button data-tab="daily" data-label="Daily">Daily</button>
-          <button data-tab="radar" class="mobile-tab" data-label="Radar">Radar</button></div></div>
+          <button id="fishing-tab" data-tab="fishing" data-label="Fishing" hidden>Fishing</button><button data-tab="radar" class="mobile-tab" data-label="Radar">Radar</button></div></div>
           <canvas id="temperature-trend" role="img" hidden></canvas><div id="periods"></div><div id="mobile-radar-slot"></div></section>
         <section class="panel radar"><div id="desktop-radar-slot"><div id="radar"></div></div></section>
       </div>
@@ -375,6 +376,7 @@ ${thermostatCSS}</style><main id="shell">
         <section><h3 data-label="Locations">Locations</h3><div id="location-settings"></div><p id="notice" role="status"></p></section>
         <section><h3 data-label="Appearance">Appearance</h3><div id="appearance-settings"></div></section>
         <section><h3 data-label="Weather boxes">Weather boxes</h3><div id="box-settings"></div></section>
+        <section id="fishing-settings"></section>
         <section><h3 data-label="Data">Data</h3><p data-label="Open-Meteo receives saved coordinates and location searches. Home Assistant serves the base map and RainViewer supplies precipitation tiles. Provider and radar controls are under Devices &amp; services → Atmosphere Weather → Configure.">Open-Meteo receives saved coordinates and location searches. Home Assistant serves the base map and RainViewer supplies precipitation tiles. Provider and radar controls are under Devices &amp; services → Atmosphere Weather → Configure.</p></section>
        </div>
       </dialog>
@@ -386,6 +388,9 @@ ${thermostatCSS}</style><main id="shell">
           <div class="actions"><button type="button" id="box-cancel" data-label="Cancel">Cancel</button>
           <button type="submit" data-label="Save">Save</button></div>
         </form></dialog>
+      <dialog id="fishing-editor" aria-labelledby="fishing-title">
+        <h2 id="fishing-title"></h2><form id="fishing-form"></form>
+      </dialog>
       <dialog id="alerts-dialog" aria-labelledby="alerts-title">
         <div class="heading"><h2 id="alerts-title" data-label="Active weather alerts">Active weather alerts</h2><button id="alerts-close" aria-label="Close weather alerts">✕</button></div>
         <div id="alerts-list"></div>
@@ -416,6 +421,11 @@ ${thermostatCSS}</style><main id="shell">
         boxes.splice(Number(button.dataset.index),1);
         this.saveBoxes(boxes);
       } else if (button.dataset.action === 'edit') this.editBox(Number(button.dataset.index));
+    };
+    this.$('periods').onchange = event => {
+      if (event.target.id !== 'fishing-species') return;
+      this.fishingSpecies = event.target.value;
+      this.render();
     };
     this.$('language').onchange = event => {
       this.languagePreference = event.target.value;
@@ -567,7 +577,11 @@ ${thermostatCSS}</style><main id="shell">
     } else if (this.theme !== 'trek') {
       brand.querySelector('img')?.remove();
     }
-    this.$('forecast-title').textContent = this.tab === 'radar' ? this.t('Precipitation radar') : this.theme === 'trek'
+    const fishing = Boolean(this.data?.fishing_enabled && selected?.fishing_enabled);
+    if (!fishing && this.tab === 'fishing') this.tab = 'hourly';
+    shell.classList.toggle("has-fishing",fishing);
+    this.renderFishingSummary(fishing, fresh ? weather?.fishing : null);
+    this.$('forecast-title').textContent = this.tab === 'fishing' ? this.t('Fishing') : this.tab === 'radar' ? this.t('Precipitation radar') : this.theme === 'trek'
       ? (this.tab === 'daily' ? this.t('Daily forecast') : this.t('Hourly forecast')) : this.t('Forecast');
     shell.dataset.tab = this.tab;
     shell.style.setProperty('--bg',background);
@@ -607,13 +621,14 @@ ${thermostatCSS}</style><main id="shell">
       button.setAttribute('aria-pressed',String(button.dataset.tab === this.tab)));
     const mode = this.tab === 'daily' ? 'daily' : 'hourly';
     const periods = (weather?.[mode] || []).slice(0,mode === 'daily' ? 7 : 8);
-    this.$('periods').innerHTML = periods.length ? `<div class="periods ${mode}">${periods.map((item,index) => `
+    if (this.tab !== 'fishing') this.$('periods').innerHTML = periods.length ? `<div class="periods ${mode}">${periods.map((item,index) => `
       <button type="button" class="period period-reading" data-reading="${mode}" data-period="${index}" aria-label="${escape(this.date(item.datetime,{weekday:'long',month:'short',day:'numeric',...(mode === 'hourly' ? {hour:'numeric',minute:'2-digit'} : {})}))} weather details"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : {hour:'numeric'})}</small>
       <span class="icon" role="img" aria-label="${escape(this.conditionLabel(item.condition))}"><i aria-hidden="true">${forecastIcon(item)}</i></span>
       <strong>${this.temp(item.native_temperature)}</strong>
       <span>${mode === 'daily' ? this.t('Low') + ' ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed) + ' ' + this.compass(item.wind_bearing,item.native_wind_speed)}</span>
       <span class="chance"> ${this.measure(item.precipitation_probability,'%')}${this.accumulation(item) ? `<span class="accumulation">${escape(this.accumulation(item))}</span>` : ''}</span></button>`).join('')}</div>`
       : `<p class="empty">${escape(this.t("Forecast unavailable"))}</p>`;
+    if (this.tab === 'fishing') this.renderFishingForecast(fresh ? weather?.fishing : null);
     this.trendValues = periods.map(item => item.native_temperature);
     const trend = this.$('temperature-trend');
     trend.setAttribute('aria-label',mode === 'daily' ? 'Daily high temperature trend' : 'Hourly temperature trend');
@@ -1150,7 +1165,130 @@ ${thermostatCSS}</style><main id="shell">
     };
   }
 
+  fishName(id) {
+    return this.t(id.replaceAll('_',' ').replace(/^./, ch => ch.toUpperCase()));
+  }
+
+  renderFishingSummary(enabled, forecast) {
+    this.$('fishing-tab').hidden = !enabled;
+    const summary = this.$('fishing-summary');
+    summary.hidden = !enabled;
+    const now = Date.now()/1000;
+    const scores = (this.data?.selected?.fishing_species || []).flatMap(species => {
+      const hour = forecast?.[species]?.flatMap(day => day.hours).find(h => h.time <= now && now < h.time+3600);
+      return hour ? [[species,Math.round(hour.score)]] : [];
+    });
+    const best = Math.max(...scores.map(([,score]) => score));
+    const label = !scores.length ? 'Fishing forecast unavailable' : best >= 7 ? 'Good fishing now'
+      : best >= 4 ? 'Fair fishing now' : 'Poor fishing now';
+    summary.innerHTML = `<strong>${escape(this.t(label))}</strong>` + scores.map(([species,score]) =>
+      `<span>${escape(this.fishName(species))} ${score}/10</span>`).join('');
+  }
+
+  renderFishingForecast(forecast) {
+    const species = this.data.selected.fishing_species || [];
+    const fish = species.includes(this.fishingSpecies) ? this.fishingSpecies : species[0];
+    const days = forecast?.[fish] || [];
+    const now = Date.now()/1000;
+    const time = seconds => this.time(seconds*1000);
+    const date = day => this.date(day.hours[0].time*1000,{weekday:'short',month:'short',day:'numeric'});
+    const best = windows => windows.reduce((a,b) => !a || b.score > a.score ? b : a,null);
+    const next = days.map(day => [day,best(day.windows.filter(window => window.end > now))]).find(([,window]) => window);
+    const factorLabels = {temp:'Temperature',cloud:'Cloud cover',pressure:'Pressure',
+      wind:'Wind',rain:'Precipitation chance',twilight:'Sunrise / sunset',moon:'Moon'};
+    const range = window => `${time(window.start)} – ${time(window.end)}`;
+    const host = this.$('periods');
+    const openDays = new Set([...host.querySelectorAll('details[open]')].map(el => el.dataset.day));
+    host.innerHTML = `<div class="fishing-forecast">
+      <select id="fishing-species" aria-label="${escape(this.t('Fish species'))}">${species.map(id =>
+        `<option value="${escape(id)}" ${id === fish ? 'selected' : ''}>${escape(this.fishName(id))}</option>`).join('')}</select>
+      ${next ? `<p><strong>${escape(this.t('Next fishing window'))}</strong> · ${escape(date(next[0]))} · ${escape(range(next[1]))}</p>` : ''}
+      ${days.length ? days.map(day => {
+        const window = best(day.windows);
+        const reasons = window ? [...new Set(day.hours
+          .filter(hour => hour.time >= window.start && hour.time < window.end)
+          .flatMap(hour => hour.factors || []))].slice(0,3) : [];
+        return `<details data-day="${escape(day.date)}" ${openDays.has(day.date) ? 'open' : ''}><summary>${escape(date(day))} · ${day.score}/10${window ? ' · '+escape(range(window)) : ''}</summary>
+          ${reasons.length ? `<p>${reasons.map(key => escape(this.t(factorLabels[key]))).join(' · ')}</p>` : ''}
+          <div class="fishing-hours">${day.hours.map(hour => `<span>${escape(time(hour.time))} · ${hour.score}/10</span>`).join('')}</div></details>`;
+      }).join('') : `<p>${escape(this.t('Fishing forecast unavailable'))}</p>`}
+      <small>${escape(this.t('Fishing ratings use forecast air temperature as a proxy for water temperature.'))}</small></div>`;
+  }
+
+  renderFishingSettings() {
+    const host = this.$('fishing-settings');
+    if (!this._hass?.user?.is_admin || !this.data?.fish_species) {
+      host.replaceChildren();
+      return;
+    }
+    const enabled = this.data.fishing_enabled;
+    host.innerHTML = `<h3>${escape(this.t('Fishing forecasts'))}</h3>
+      <label><input type="checkbox" id="enable-fishing" ${enabled ? 'checked' : ''}> ${escape(this.t('Fishing forecasts'))}</label>
+      ${enabled ? this.data.locations.map((location,index) => `<div class="box-row"><span class="box-preview">
+        ${escape(location.name)} · ${escape(this.t(location.fishing_enabled ? 'On' : 'Off'))}</span>
+        <button type="button" data-fishing-location="${index}">${escape(this.t('Edit'))}</button></div>`).join('') : ''}
+      <p id="fishing-status" role="status"></p>`;
+    host.querySelector('#enable-fishing').onchange = event => this.saveFishing({enabled:event.target.checked});
+    host.querySelectorAll('[data-fishing-location]').forEach(button => {
+      button.onclick = () => this.editFishing(this.data.locations[Number(button.dataset.fishingLocation)]);
+    });
+  }
+
+  async saveFishing(data, editor) {
+    const notice = editor?.querySelector('[role=status]') || this.$('fishing-status');
+    try {
+      await this.call('save_fishing',data);
+      if (data.location) {
+        const location = this.data.locations.find(item => item.id === data.location);
+        Object.assign(location,{fishing_enabled:data.enabled,fishing_water:data.water,fishing_species:data.species});
+        if (this.data.selected?.id === location.id) Object.assign(this.data.selected,location);
+      } else this.data.fishing_enabled = data.enabled;
+      editor?.close();
+      this.renderFishingSettings();
+      this.render();
+      setTimeout(() => this.refresh(10),750);
+    } catch (error) {
+      notice.textContent = error.message || this.t('Fishing forecast unavailable');
+      if (!editor) this.$('enable-fishing').checked = this.data.fishing_enabled;
+    }
+  }
+
+  editFishing(location) {
+    const editor = this.$('fishing-editor');
+    const form = this.$('fishing-form');
+    this.$('fishing-title').textContent = location.name + ' · ' + this.t('Fishing');
+    const option = id => `<option value="${escape(id)}">${escape(this.fishName(id))}</option>`;
+    form.innerHTML = `
+      <label><input type="checkbox" name="enabled" ${location.fishing_enabled ? 'checked' : ''}> ${escape(this.t('Fishing forecasts'))}</label>
+      <label>${escape(this.t('Water type'))}<select name="water">${['lake','river','pond','reservoir'].map(option).join('')}</select></label>
+      <fieldset><legend>${escape(this.t('Fish species'))}</legend>
+        ${Array.from({length:4},(_,i) => `<label>${escape(this.t('Fish species'))} ${i+1}
+          <select name="species"><option value="">—</option>${this.data.fish_species.map(option).join('')}</select></label>`).join('')}
+      </fieldset><p role="status"></p>
+      <div class="actions"><button type="button" id="fishing-cancel">${escape(this.t('Cancel'))}</button>
+      <button type="submit">${escape(this.t('Save'))}</button></div>`;
+    form.elements.water.value = location.fishing_water || 'lake';
+    const slots = [...form.querySelectorAll('[name=species]')];
+    slots.forEach((slot,i) => slot.value = location.fishing_species?.[i] || '');
+    form.querySelector('#fishing-cancel').onclick = () => editor.close();
+    form.onsubmit = async event => {
+      event.preventDefault();
+      const species = slots.map(slot => slot.value).filter(Boolean);
+      const enabled = form.elements.enabled.checked;
+      if ((enabled && !species.length) || new Set(species).size !== species.length) {
+        form.querySelector('[role=status]').textContent = this.t('Choose one to four different fish species.');
+        return;
+      }
+      const submit = form.querySelector('[type=submit]');
+      submit.disabled = true;
+      await this.saveFishing({location:location.id,enabled,water:form.elements.water.value,species},editor);
+      submit.disabled = false;
+    };
+    editor.showModal();
+  }
+
   renderLocationSettings() {
+    this.renderFishingSettings();
     this.$('notice').textContent = '';
     const content = this.$('location-settings');
     const locations = this.data?.locations || [];
@@ -1333,7 +1471,7 @@ const CSS = `
 *{box-sizing:border-box}
 main{--ink:#edf3f5;--muted:#b3c5d2;--line:#ffffff20;--font:Manrope,"Avenir Next",system-ui,sans-serif;
  color-scheme:dark;color:var(--ink);background:var(--bg,#101923);font:14px var(--font);font-variant-numeric:tabular-nums;
- display:grid;grid-template-rows:42px minmax(130px,.9fr) calc(67px + var(--alert-height,0px)) minmax(190px,1.1fr) auto;gap:12px;padding:16px 24px;
+ display:grid;grid-template-rows:42px minmax(130px,.9fr) calc(67px + var(--alert-height,0px) + var(--fishing-height,0px)) minmax(190px,1.1fr) auto;gap:12px;padding:16px 24px;
  min-height:540px;height:calc(100dvh - var(--header-height,56px))}
 main[data-theme=appearance]{color-scheme:var(--yanke-scheme,normal);--ink:var(--yanke-text,var(--primary-text-color,#edf3f5));
  --muted:var(--yanke-muted,var(--secondary-text-color,#b3c5d2));--line:var(--yanke-line,var(--divider-color,#ffffff20));
@@ -1387,7 +1525,7 @@ dialog::backdrop{background:#071019aa}.themes,.coordinates{display:grid;grid-tem
 main[data-theme=neon] .panel{box-shadow:inset 0 0 24px #28deef14}
 @container(max-width:900px){.hourly .period:nth-child(n+7){display:none}.periods.hourly{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @container(max-width:700px){
- main{min-height:510px;padding:8px 12px;gap:8px;grid-template-rows:38px minmax(112px,.8fr) calc(64px + var(--alert-height,0px)) minmax(170px,1fr) auto}
+ main{min-height:510px;padding:8px 12px;gap:8px;grid-template-rows:38px minmax(112px,.8fr) calc(64px + var(--alert-height,0px) + var(--fishing-height,0px)) minmax(170px,1fr) auto}
  .brand{font-size:17px}.hero{padding:12px 15px}.metrics{gap:5px}.metrics>div{padding:7px 5px}.metrics span{font-size:.66em}
  .metrics strong{font-size:.9em}.outlook{display:block;position:relative;height:100%}.forecast{height:100%}.radar{display:none}
  .mobile-tab{display:block}
@@ -1398,7 +1536,7 @@ main[data-theme=trek]{
  --gold:#f3c969;--orange:#ff9955;--blue:#a6bef6;--violet:#9b91dd;--ink:var(--gold);
  --muted:#e2ba75;--font:"Avenir Next Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
  --rail:clamp(16px,4cqw,66px);background:#050505;padding-inline-start:calc(var(--rail) + 16px);
- position:relative;grid-template-rows:clamp(60px,10vh,100px) minmax(130px,.9fr) calc(65px + var(--alert-height,0px)) minmax(190px,1.1fr) auto;
+ position:relative;grid-template-rows:clamp(60px,10vh,100px) minmax(130px,.9fr) calc(65px + var(--alert-height,0px) + var(--fishing-height,0px)) minmax(190px,1.1fr) auto;
 }
 main[data-theme=trek]::before{
  content:"";position:absolute;inset:16px auto 30px 8px;width:var(--rail);border-radius:44px 0 0 44px;
@@ -1444,7 +1582,7 @@ main[data-theme=trek] .period{
 }
 main[data-theme=trek] .period small{background:#352716;color:var(--gold);width:100%;padding:3px 0;font-weight:800}
 @container(max-width:700px){
- main[data-theme=trek]{--rail:8px;padding:8px 8px 8px 21px;grid-template-rows:58px minmax(110px,.7fr) calc(66px + var(--alert-height,0px)) minmax(185px,1fr) auto}
+ main[data-theme=trek]{--rail:8px;padding:8px 8px 8px 21px;grid-template-rows:58px minmax(110px,.7fr) calc(66px + var(--alert-height,0px) + var(--fishing-height,0px)) minmax(185px,1fr) auto}
  main[data-theme=trek]::before{inset-block:8px 24px;border-radius:8px 0 0 8px}
  main[data-theme=trek]>header{border-bottom-width:6px;padding:0 2px 3px;border-radius:0 0 0 12px}
  main[data-theme=trek] .brand{gap:4px;font-size:clamp(15px,4.5cqw,24px)}
@@ -1571,10 +1709,10 @@ main[data-theme=trek] .brand{gap:var(--brand-gap)}
 main[data-theme=trek] .brand img{width:var(--emblem);position:relative;top:6px;z-index:1}
 main[data-theme=trek]{
  --header-row:clamp(87px,13vh,118px);
- grid-template-rows:minmax(var(--header-row),max-content) minmax(130px,.9fr) calc(65px + var(--alert-height,0px)) minmax(190px,1.1fr) auto;
+ grid-template-rows:minmax(var(--header-row),max-content) minmax(130px,.9fr) calc(65px + var(--alert-height,0px) + var(--fishing-height,0px)) minmax(190px,1.1fr) auto;
 }
 @container(max-width:700px){
- main[data-theme=trek]{grid-template-rows:61px minmax(110px,.7fr) calc(66px + var(--alert-height,0px)) minmax(185px,1fr) auto}
+ main[data-theme=trek]{grid-template-rows:61px minmax(110px,.7fr) calc(66px + var(--alert-height,0px) + var(--fishing-height,0px)) minmax(185px,1fr) auto}
  main[data-theme=trek]>header{--emblem:clamp(36px,10.4cqw,48px);--brand-gap:4px;--header-inset:2px;padding:0 2px 7px}
  main[data-theme=trek]>header::after{height:5px}
  main[data-theme=trek] .brand img{top:3px}
@@ -1606,7 +1744,7 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
 @container(max-width:700px){
  main,main[data-theme=trek],main[data-theme=appearance]{
    height:var(--atmosphere-available-height,calc(100dvh - var(--header-height,56px)));
-   min-height:465px;gap:6px;grid-template-rows:auto minmax(104px,.65fr) calc(63px + var(--alert-height,0px)) minmax(194px,1fr) auto;
+   min-height:465px;gap:6px;grid-template-rows:auto minmax(104px,.65fr) calc(63px + var(--alert-height,0px) + var(--fishing-height,0px)) minmax(194px,1fr) auto;
  }
  main[data-theme=trek]>header{min-height:56px}
  main:not([data-theme=trek]) header{min-height:38px}
@@ -1622,15 +1760,26 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
  main[data-theme=trek] .forecast h2{font-size:13px}
 }
 
+#fishing-tab[hidden],#fishing-summary[hidden]{display:none}
+#fishing-summary{display:flex;justify-content:center;gap:4px 12px;flex-wrap:wrap;width:100%;margin-bottom:5px;padding:5px 8px;font-size:clamp(11px,1.3cqw,16px);color:var(--ink)}
+.fishing-forecast{height:100%;overflow:auto;min-height:0;padding:4px}
+.fishing-forecast details{padding:4px;border-bottom:1px solid var(--line)}
+.fishing-hours,#fishing-form fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px}
+#fishing-form{display:grid;gap:10px}
+#fishing-form label{display:block;min-width:0}
+#fishing-form select{display:block;width:100%;min-width:0}
+#fishing-settings>label{display:block;margin-bottom:8px}
 #desktop-radar-slot,#mobile-radar-slot{flex:1;min-height:0;display:flex;flex-direction:column}
 #mobile-radar-slot{display:none}
 @container(max-width:700px){
  .forecast .heading{flex-direction:column;align-items:stretch;gap:6px}
  .forecast .tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ .has-fishing .forecast .tabs{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .has-fishing .forecast .tabs button{font-size:clamp(10px,3cqw,14px);padding-inline:3px}
  .forecast .tabs button{width:100%;min-height:42px;font-size:15px;padding:6px 8px}
  main[data-tab=radar] #periods{display:none}
  main[data-tab=radar] #mobile-radar-slot{display:flex}
- main[data-tab=radar]{grid-template-rows:auto minmax(104px,.3fr) calc(63px + var(--alert-height,0px)) minmax(194px,1fr) auto}
+ main[data-tab=radar]{grid-template-rows:auto minmax(104px,.3fr) calc(63px + var(--alert-height,0px) + var(--fishing-height,0px)) minmax(194px,1fr) auto}
 }
 
 /* Reserve room for precipitation totals across all framed forecast columns. */
@@ -1693,6 +1842,9 @@ main[data-theme=trek] .period .chance .accumulation{
 }
 
 #shell.has-alerts{--alert-height:40px;min-height:505px}
+#shell.has-fishing{--fishing-height:48px}
+.has-fishing .conditions-strip{grid-template-rows:auto minmax(0,1fr)}
+.has-fishing.has-alerts .conditions-strip{grid-template-rows:auto 34px minmax(0,1fr)}
 .conditions-strip{display:grid;grid-template-rows:minmax(0,1fr);min-height:0}
 .has-alerts .conditions-strip{grid-template-rows:34px minmax(0,1fr);gap:6px}
 #alert-banner{display:flex;align-items:center;gap:8px;min-width:0;border:1px solid #f2a951;
@@ -1716,13 +1868,13 @@ main[data-theme=trek] .period .chance .accumulation{
 .forecast:has(#temperature-trend:not([hidden])) .periods{grid-template-rows:minmax(0,1fr)}
 .forecast:has(#temperature-trend:not([hidden])) .period .icon{min-height:0}
 @container(min-width:701px){
- #shell:has(#temperature-trend:not([hidden])){grid-template-rows:minmax(var(--header-row,70px),max-content) minmax(130px,.8fr) calc(65px + var(--alert-height,0px)) minmax(230px,1.2fr) auto}
+ #shell:has(#temperature-trend:not([hidden])){grid-template-rows:minmax(var(--header-row,70px),max-content) minmax(130px,.8fr) calc(65px + var(--alert-height,0px) + var(--fishing-height,0px)) minmax(230px,1.2fr) auto}
 }
 @container(max-width:700px){
  #temperature-trend{height:20px}
  .forecast:has(#temperature-trend:not([hidden])){gap:3px}
  #shell:has(#temperature-trend:not([hidden])){
-   grid-template-rows:auto minmax(104px,.55fr) calc(63px + var(--alert-height,0px)) minmax(230px,1fr) auto;
+   grid-template-rows:auto minmax(104px,.55fr) calc(63px + var(--alert-height,0px) + var(--fishing-height,0px)) minmax(230px,1fr) auto;
  }
  .forecast:has(#temperature-trend:not([hidden])) .period{gap:2px}
  .forecast:has(#temperature-trend:not([hidden])) .period .icon i{font-size:clamp(22px,7cqw,38px)}

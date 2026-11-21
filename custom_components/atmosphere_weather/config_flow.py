@@ -72,7 +72,7 @@ class ProviderOptions(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         if user_input is not None:
             user_input["api_key"] = user_input.get("api_key", "").strip()
-            return self.async_create_entry(data=user_input)
+            return self.async_create_entry(data={**self.config_entry.options, **user_input})
         return self.async_show_form(step_id="init", data_schema=vol.Schema({
             vol.Optional("api_key", description={"suggested_value": self.config_entry.options.get("api_key", "")}): str,
             vol.Required("radar", default=self.config_entry.options.get("radar", True)): bool,

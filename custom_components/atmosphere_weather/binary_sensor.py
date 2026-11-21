@@ -1,7 +1,7 @@
 """Weather conditions suitable for triggers."""
 from homeassistant.components.binary_sensor import BinarySensorEntity
 
-from .entity import LocationEntity
+from .entity import FishingEntity, LocationEntity
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -11,6 +11,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
             AtmosphereFlag(coordinator, "freezing", "Freezing", "temperature_2m", lambda value: value <= 0),
             AtmosphereFlag(coordinator, "precipitation_expected", "Precipitation expected", "next_precipitation",
                            lambda value: value >= 50),
+        ] + [FishingWindow(coordinator, species, "active", "Fishing window active")
+             for species in coordinator.location.data.get("fishing_species", [])
         ], config_subentry_id=location_id)
 
 
@@ -23,3 +25,9 @@ class AtmosphereFlag(LocationEntity, BinarySensorEntity):
     @property
     def is_on(self):
         return None if self.value is None else self.test(self.value)
+
+
+class FishingWindow(FishingEntity, BinarySensorEntity):
+    @property
+    def is_on(self):
+        return self.value

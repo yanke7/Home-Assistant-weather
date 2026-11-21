@@ -4,7 +4,7 @@ from datetime import datetime
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.const import DEGREE, PERCENTAGE, UnitOfPrecipitationDepth, UnitOfPressure, UnitOfSpeed, UnitOfTemperature
 
-from .entity import LocationEntity
+from .entity import FishingEntity, LocationEntity
 
 TEMPERATURE = SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS
 WIND = SensorDeviceClass.WIND_SPEED, UnitOfSpeed.KILOMETERS_PER_HOUR
@@ -32,7 +32,12 @@ METRICS = (
 
 async def async_setup_entry(hass, entry, async_add_entities):
     for location_id, coordinator in entry.runtime_data.items():
-        async_add_entities([AtmosphereSensor(coordinator, *metric) for metric in METRICS],
+        async_add_entities([AtmosphereSensor(coordinator, *metric) for metric in METRICS] + [
+            FishingSensor(coordinator, species, field, label)
+            for species in coordinator.location.data.get("fishing_species", [])
+            for field, label in (("current", "Fishing score now"), ("daily", "Daily fishing score"),
+                                 ("start", "Next fishing window start"), ("end", "Next fishing window end"))
+        ],
                            config_subentry_id=location_id)
 
 
@@ -51,3 +56,15 @@ class AtmosphereSensor(LocationEntity, SensorEntity):
         if value is not None and self.device_class == SensorDeviceClass.TIMESTAMP:
             return datetime.fromisoformat(value)
         return value
+
+
+class FishingSensor(FishingEntity, SensorEntity):
+    def __init__(self, coordinator, species, field, label):
+        super().__init__(coordinator, species, field, label)
+        if field in ("start", "end"):
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    @property
+    def native_value(self):
+        value = self.value
+        return datetime.fromisoformat(value) if value and self.field in ("start", "end") else value

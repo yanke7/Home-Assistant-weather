@@ -38,6 +38,12 @@ Use a unique optional `storage_key` per dashboard card to keep its browser prefe
 - **Hourly and daily forecasts:** Compare conditions, wind, precipitation probability and available rain or snow totals. An hourly temperature trend and a daily high-temperature trend make changes easy to spot. The daily view also shows the forecast low.
 - **Forecast details:** Tap current conditions or an hourly or daily column to see all readings available for that period. Use the gear in the panel to choose which readings appear. The panel leaves the forecast columns accessible so you can switch periods while it’s open, and uses two columns when space allows.
 
+### Fishing forecasts
+
+Enable **Settings → Fishing forecasts**, then edit a saved location to select its water type and up to four fish species. Enabled locations show current fishing scores and a **Fishing** tab with the next recommended window, seven daily ratings, and hourly details. Species-specific scores and window entities can trigger Home Assistant automations. The ratings combine weather and solar/lunar activity and use air temperature as a proxy for water temperature.
+
+Species profiles are adapted from [Fishing Assistant](https://github.com/bairnhard/fishing_assistant) under the MIT license.
+
 ### Precipitation radar and wind rose
 
 - Scrub through recent observed precipitation frames using the time slider.
