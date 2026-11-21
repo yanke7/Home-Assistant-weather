@@ -422,11 +422,6 @@ ${thermostatCSS}</style><main id="shell">
         this.saveBoxes(boxes);
       } else if (button.dataset.action === 'edit') this.editBox(Number(button.dataset.index));
     };
-    this.$('periods').onchange = event => {
-      if (event.target.id !== 'fishing-species') return;
-      this.fishingSpecies = event.target.value;
-      this.render();
-    };
     this.$('language').onchange = event => {
       this.languagePreference = event.target.value;
       this.write('language',this.languagePreference);
@@ -685,15 +680,18 @@ ${thermostatCSS}</style><main id="shell">
 
   openReadings(kind,index) {
     const weather = this.data?.weather;
-    const record = kind === 'current' ? weather?.current : weather?.[kind]?.[index];
+    const record = kind === 'fishing' ? this.fishingDays?.[index] : kind === 'current' ? weather?.current : weather?.[kind]?.[index];
     if (!record) return;
     this.reading = {kind,record,location:this.data.selected?.name,fresh:this.data.fresh};
-    this.$('reading-title').textContent = {current:this.t('Current conditions'),hourly:this.t('Hourly forecast'),daily:this.t('Daily forecast')}[kind];
-    const timestamp = kind === 'current' ? record.observed_at : record.datetime;
+    this.$('reading-title').textContent = {current:this.t('Current conditions'),hourly:this.t('Hourly forecast'),daily:this.t('Daily forecast'),fishing:this.t('Fishing forecasts')}[kind];
+    const timestamp = kind === 'current' ? record.observed_at : kind === 'fishing' ? record.time : record.datetime;
     const date = timestamp ? this.date(timestamp,{weekday:'long',month:'short',day:'numeric',
-      ...(kind === 'daily' ? {} : {hour:'numeric',minute:'2-digit',timeZoneName:'short'})}) : '';
+      ...(['daily','fishing'].includes(kind) ? {} : {hour:'numeric',minute:'2-digit',timeZoneName:'short'})}) : '';
     this.$('reading-context').textContent = [this.reading.location,date,this.reading.fresh ? '' : 'Last available data'].filter(Boolean).join(' · ');
+    this.$('reading-gear').hidden = kind === 'fishing';
+    this.$('weather-details').dataset.kind = kind;
     this.renderReadings();
+    this.$('weather-details').scrollTop = 0;
     const panel = this.$('weather-details');
     if (!panel.open) {
       const trigger = this.shadowRoot.activeElement;
@@ -820,6 +818,10 @@ ${thermostatCSS}</style><main id="shell">
   }
 
   renderReadings() {
+    if (this.reading.kind === 'fishing') {
+      this.renderFishingDetails();
+      return;
+    }
     const hidden = this.hiddenReadings();
     const visible = this.readingRows().filter(([key,,value]) => value != null && !hidden.has(key));
     const list = this.$('reading-list');
@@ -1186,33 +1188,43 @@ ${thermostatCSS}</style><main id="shell">
   }
 
   renderFishingForecast(forecast) {
-    const species = this.data.selected.fishing_species || [];
-    const fish = species.includes(this.fishingSpecies) ? this.fishingSpecies : species[0];
-    const days = forecast?.[fish] || [];
-    const now = Date.now()/1000;
+    const species = (this.data.selected.fishing_species || []).slice(0,4);
+    const dates = new Map();
+    for (const fish of species) {
+      for (const day of forecast?.[fish] || []) {
+        if (!day.hours.length) continue;
+        if (!dates.has(day.date)) dates.set(day.date,{time:day.hours[0].time*1000,fish:new Map()});
+        dates.get(day.date).fish.set(fish,day);
+      }
+    }
+    this.fishingDays = [...dates.keys()].sort().map(date => dates.get(date));
+    this.$('periods').innerHTML = `<div class="fishing-forecast">${this.fishingDays.length
+      ? this.fishingDays.map((day,index) => `<button class="fishing-day" type="button" data-reading="fishing" data-period="${index}">
+        <strong>${escape(this.date(day.time,{weekday:'short',month:'short',day:'numeric'}))}</strong>
+        <span class="fishing-scores">${species.map(fish => {
+          const hours = day.fish.get(fish)?.hours;
+          const peak = hours?.length ? Math.max(...hours.map(hour => hour.score)) : null;
+          return `<span>${escape(this.fishName(fish))} <strong>${peak == null ? '—' : peak+'/10'}</strong></span>`;
+        }).join('')}</span></button>`).join('')
+      : `<p>${escape(this.t('Fishing forecast unavailable'))}</p>`}</div>`;
+  }
+
+  renderFishingDetails() {
     const time = seconds => this.time(seconds*1000);
-    const date = day => this.date(day.hours[0].time*1000,{weekday:'short',month:'short',day:'numeric'});
-    const best = windows => windows.reduce((a,b) => !a || b.score > a.score ? b : a,null);
-    const next = days.map(day => [day,best(day.windows.filter(window => window.end > now))]).find(([,window]) => window);
-    const factorLabels = {temp:'Temperature',cloud:'Cloud cover',pressure:'Pressure',
-      wind:'Wind',rain:'Precipitation chance',twilight:'Sunrise / sunset',moon:'Moon'};
-    const range = window => `${time(window.start)} – ${time(window.end)}`;
-    const host = this.$('periods');
-    const openDays = new Set([...host.querySelectorAll('details[open]')].map(el => el.dataset.day));
-    host.innerHTML = `<div class="fishing-forecast">
-      <select id="fishing-species" aria-label="${escape(this.t('Fish species'))}">${species.map(id =>
-        `<option value="${escape(id)}" ${id === fish ? 'selected' : ''}>${escape(this.fishName(id))}</option>`).join('')}</select>
-      ${next ? `<p><strong>${escape(this.t('Next fishing window'))}</strong> · ${escape(date(next[0]))} · ${escape(range(next[1]))}</p>` : ''}
-      ${days.length ? days.map(day => {
-        const window = best(day.windows);
-        const reasons = window ? [...new Set(day.hours
-          .filter(hour => hour.time >= window.start && hour.time < window.end)
-          .flatMap(hour => hour.factors || []))].slice(0,3) : [];
-        return `<details data-day="${escape(day.date)}" ${openDays.has(day.date) ? 'open' : ''}><summary>${escape(date(day))} · ${day.score}/10${window ? ' · '+escape(range(window)) : ''}</summary>
-          ${reasons.length ? `<p>${reasons.map(key => escape(this.t(factorLabels[key]))).join(' · ')}</p>` : ''}
-          <div class="fishing-hours">${day.hours.map(hour => `<span>${escape(time(hour.time))} · ${hour.score}/10</span>`).join('')}</div></details>`;
-      }).join('') : `<p>${escape(this.t('Fishing forecast unavailable'))}</p>`}
-      <small>${escape(this.t('Fishing ratings use forecast air temperature as a proxy for water temperature.'))}</small></div>`;
+    const labels = {temp:'Temperature',cloud:'Cloud cover',pressure:'Pressure',
+      wind:'Wind',rain:'Precipitation accumulation',twilight:'Sunrise / sunset',moon:'Moon'};
+    this.$('reading-list').innerHTML = [...this.reading.record.fish].map(([fish,day]) => {
+      const peak = Math.max(...day.hours.map(hour => hour.score));
+      const best = day.windows.reduce((a,b) => !a || b.score > a.score ? b : a,null);
+      const reasons = best ? [...new Set(day.hours.filter(hour => hour.time >= best.start && hour.time < best.end)
+        .flatMap(hour => hour.factors || []))].slice(0,3) : [];
+      return `<div class="fishing-detail"><dt>${escape(this.fishName(fish))}</dt><dd>
+        <p>${escape(this.t('Daily score'))} ${day.score}/10 · ${escape(this.t('Peak score'))} ${peak}/10</p>
+        ${best ? `<p>${escape(this.t('Best fishing window'))} · ${escape(time(best.start))} – ${escape(time(best.end))}</p>` : ''}
+        ${reasons.length ? `<p>${reasons.map(key => escape(this.t(labels[key]))).join(' · ')}</p>` : ''}
+        <div class="fishing-hours">${day.hours.map(hour => `<span>${escape(time(hour.time))} · ${hour.score}/10</span>`).join('')}</div>
+        </dd></div>`;
+    }).join('');
   }
 
   renderFishingSettings() {
@@ -1763,7 +1775,12 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
 #fishing-tab[hidden],#fishing-summary[hidden]{display:none}
 #fishing-summary{display:flex;justify-content:center;gap:4px 12px;flex-wrap:wrap;width:100%;margin-bottom:5px;padding:5px 8px;font-size:clamp(11px,1.3cqw,16px);color:var(--ink)}
 .fishing-forecast{height:100%;overflow:auto;min-height:0;padding:4px}
-.fishing-forecast details{padding:4px;border-bottom:1px solid var(--line)}
+.fishing-day{width:100%;display:grid;grid-template-columns:minmax(68px,auto) 1fr;text-align:left;gap:8px;margin-bottom:5px;padding:6px 8px}
+.fishing-scores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 8px;overflow-wrap:anywhere}
+#weather-details #reading-list>.fishing-detail{display:block;padding:8px 0;min-width:0}
+#reading-list .fishing-detail dd{text-align:left;font-weight:400}
+.fishing-detail p{margin:4px 0}
+#reading-gear[hidden]{display:none}
 .fishing-hours,#fishing-form fieldset{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:8px}
 #fishing-form{display:grid;gap:10px}
 #fishing-form label{display:block;min-width:0}
