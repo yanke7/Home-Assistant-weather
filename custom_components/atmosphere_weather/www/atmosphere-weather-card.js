@@ -759,7 +759,7 @@ ${thermostatCSS}</style><main id="shell">
     const choices = this.boxChoices();
     const metrics = this.$('metrics');
     metrics.style.setProperty('--box-count',boxes.length);
-    metrics.innerHTML = boxes.map((box,i) => `<div>${this.boxContents(box,choices,i)}</div>`).join('');
+    metrics.innerHTML = boxes.map((box,i) => `<div><div class="metric-content">${this.boxContents(box,choices,i)}</div></div>`).join('');
   }
 
   saveBoxes(boxes) {
@@ -1364,6 +1364,7 @@ main:not([data-theme=original]) .hero{background:linear-gradient(115deg,var(--su
 .box-preview{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;flex:1;min-width:0;overflow-wrap:anywhere}
 .box-preview strong{display:block}
 #box-form{display:grid;gap:12px}#box-form label{display:grid;gap:4px}
+.metric-content{display:contents}
 .metrics>div,.panel{background:var(--surface);border:1px solid var(--line);border-radius:13px;min-width:0;padding:12px}
 .metrics span,.period span,.period small,footer,.radar-content small,.empty{color:var(--muted);font-size:.78em}
 .metrics strong{display:block;margin-top:4px;font-size:1.15em}.metrics span{display:block}
@@ -1538,6 +1539,20 @@ main[data-theme=trek] .metrics span{font-size:clamp(10px,1.22cqw,19px);line-heig
  main[data-theme=trek] .metrics>div{--cap:5px;padding:7px 8px;background-size:var(--rail-width) 3px,var(--rail-width) 3px,auto}
  main[data-theme=trek] .metrics strong{font-size:clamp(11px,3.3cqw,16px)}
  main[data-theme=trek] .metrics span{font-size:9px}
+}
+
+/* Size the readout against the space inside its own instrument frame. */
+main[data-theme=trek] .metrics>div{container:instrument / inline-size;display:grid;grid-template-columns:minmax(0,1fr);align-content:center;
+ --cap:clamp(4px,5%,20px);padding:6px calc(var(--cap) + 4px)}
+main[data-theme=trek] .metric-content{display:flex;align-items:center;justify-content:space-between;
+ flex-direction:row-reverse;gap:2px 6px;min-width:0}
+main[data-theme=trek] .metric-content strong{font-size:clamp(12px,9cqi,26px);line-height:1.12;
+ white-space:normal;overflow-wrap:anywhere}
+main[data-theme=trek] .metric-content span{font-size:clamp(10px,5cqi,15px);line-height:1.12;
+ overflow-wrap:anywhere;text-align:right}
+@container instrument (max-width:215px){
+ main[data-theme=trek] .metric-content{align-items:flex-start;flex-direction:column-reverse}
+ main[data-theme=trek] .metric-content span{text-align:left}
 }
 
 main[data-theme=trek]>header{
