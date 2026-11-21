@@ -591,6 +591,8 @@ ${thermostatCSS}</style><main id="shell">
     }
     selector.disabled = !locations.length;
     if (selected) selector.value = selected.id;
+    selector.title = selected?.name || '';
+    selector.style.setProperty('--location-length',Math.max(18,selected?.name.length || 0));
     const label = current.condition ? this.conditionLabel(current.condition) : null;
     const briefing = fresh ? this.briefing(weather?.hourly) : '';
     this.$('hero').classList.toggle('has-briefing',Boolean(briefing));
@@ -1198,13 +1200,13 @@ ${thermostatCSS}</style><main id="shell">
       }
     }
     this.fishingDays = [...dates.keys()].sort().map(date => dates.get(date));
-    this.$('periods').innerHTML = `<div class="fishing-forecast">${this.fishingDays.length
-      ? this.fishingDays.map((day,index) => `<button class="fishing-day" type="button" data-reading="fishing" data-period="${index}">
-        <strong>${escape(this.date(day.time,{weekday:'short',month:'short',day:'numeric'}))}</strong>
+    this.$('periods').innerHTML = `<div class="fishing-forecast periods daily" style="--fishing-days:${Math.max(1,this.fishingDays.length)}">${this.fishingDays.length
+      ? this.fishingDays.map((day,index) => `<button class="period fishing-day" type="button" data-reading="fishing" data-period="${index}">
+        <small>${escape(this.date(day.time,{weekday:'short'}))}<span>${escape(this.date(day.time,{day:'numeric'}))}</span></small>
         <span class="fishing-scores">${species.map(fish => {
           const hours = day.fish.get(fish)?.hours;
           const peak = hours?.length ? Math.max(...hours.map(hour => hour.score)) : null;
-          return `<span>${escape(this.fishName(fish))} <strong>${peak == null ? '—' : peak+'/10'}</strong></span>`;
+          return `<span><span>${escape(this.fishName(fish))}</span><strong>${peak == null ? '—' : peak+'/10'}</strong></span>`;
         }).join('')}</span></button>`).join('')
       : `<p>${escape(this.t('Fishing forecast unavailable'))}</p>`}</div>`;
   }
@@ -1774,9 +1776,15 @@ main[data-theme=trek] .hero .orb:not(.lunar-orb){
 
 #fishing-tab[hidden],#fishing-summary[hidden]{display:none}
 #fishing-summary{display:flex;justify-content:center;gap:4px 12px;flex-wrap:wrap;width:100%;margin-bottom:5px;padding:5px 8px;font-size:clamp(11px,1.3cqw,16px);color:var(--ink)}
-.fishing-forecast{height:100%;overflow:auto;min-height:0;padding:4px}
-.fishing-day{width:100%;display:grid;grid-template-columns:minmax(68px,auto) 1fr;text-align:left;gap:8px;margin-bottom:5px;padding:6px 8px}
-.fishing-scores{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 8px;overflow-wrap:anywhere}
+#periods .fishing-forecast{grid-template-columns:repeat(var(--fishing-days),minmax(0,1fr));grid-template-rows:minmax(0,1fr);gap:clamp(2px,.55cqw,8px)}
+#periods .fishing-day{display:flex;flex-direction:column;justify-content:flex-start;gap:3px;width:100%;padding:4px 1px;overflow:visible}
+#periods .fishing-day>small{width:100%;font-size:clamp(10px,2.8cqw,19px);line-height:1.05}
+.fishing-day>small span{display:block}
+#periods .fishing-scores{width:100%;display:grid;flex:1;grid-template-rows:repeat(4,minmax(min-content,1fr));gap:2px}
+#periods .fishing-scores>span{display:grid;align-content:center;min-width:0;padding:2px 0;border-bottom:1px solid var(--line)}
+#periods .fishing-scores>span>span{font-size:clamp(8px,2.35cqw,15px);line-height:1.05;overflow-wrap:anywhere}
+#periods .fishing-scores strong{display:block;font-size:clamp(10px,2.7cqw,20px);line-height:1.05}
+.fishing-forecast>p{grid-column:1/-1}
 #weather-details #reading-list>.fishing-detail{display:block;padding:8px 0;min-width:0}
 #reading-list .fishing-detail dd{text-align:left;font-weight:400}
 .fishing-detail p{margin:4px 0}
@@ -1895,6 +1903,13 @@ main[data-theme=trek] .period .chance .accumulation{
  }
  .forecast:has(#temperature-trend:not([hidden])) .period{gap:2px}
  .forecast:has(#temperature-trend:not([hidden])) .period .icon i{font-size:clamp(22px,7cqw,38px)}
+}
+
+#shell[data-theme=trek]>header>.actions{min-width:0}
+#shell[data-theme=trek] #location{min-width:0;width:100%;max-width:52cqw;text-align:right;text-align-last:right;
+ font-size:clamp(10px,calc(83cqw / var(--location-length,18)),21px);padding-inline:2px}
+@container(max-width:700px){
+ #shell[data-theme=trek] #location{max-width:42cqw;font-size:clamp(9px,calc(69cqw / var(--location-length,18)),13px)}
 }
 
 .radar-map-area{position:relative;min-height:0}
