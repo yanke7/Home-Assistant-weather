@@ -2,6 +2,13 @@ export const languages = {"en": "English", "fr": "Français", "es": "Español", 
 
 // Each row follows the language order above, excluding English (the message key).
 const messages = {
+  "Save":["Enregistrer", "Guardar", "Speichern", "I-save", "सहेजें", "Opslaan", "Spara", "Salva", "Zapisz", "Gem", "Lagre"],
+  "Cancel":["Annuler", "Cancelar", "Abbrechen", "Kanselahin", "रद्द करें", "Annuleren", "Avbryt", "Annulla", "Anuluj", "Annuller", "Avbryt"],
+  "Sunrise / sunset":["Lever / coucher du soleil", "Amanecer / atardecer", "Sonnenaufgang / Sonnenuntergang", "Pagsikat / paglubog ng araw", "सूर्योदय / सूर्यास्त", "Zonsopkomst / zonsondergang", "Soluppgång / solnedgång", "Alba / tramonto", "Wschód / zachód słońca", "Solopgang / solnedgang", "Soloppgang / solnedgang"],
+  "Add landscape box":["Ajouter un encadré en paysage", "Añadir cuadro en horizontal", "Feld fürs Querformat hinzufügen", "Magdagdag ng kahon sa landscape", "लैंडस्केप बॉक्स जोड़ें", "Vak voor liggende weergave toevoegen", "Lägg till ruta för liggande läge", "Aggiungi riquadro orizzontale", "Dodaj pole w widoku poziomym", "Tilføj felt til liggende visning", "Legg til felt for liggende visning"],
+  "Custom title":["Titre personnalisé", "Título personalizado", "Eigener Titel", "Sariling pamagat", "कस्टम शीर्षक", "Eigen titel", "Egen rubrik", "Titolo personalizzato", "Własny tytuł", "Egen titel", "Egen tittel"],
+  "Reading":["Mesure", "Medición", "Messwert", "Sukat", "रीडिंग", "Meting", "Mätvärde", "Misurazione", "Odczyt", "Måling", "Måling"],
+  "Weather boxes":["Encadrés météo", "Cuadros del tiempo", "Wetterfelder", "Mga kahon ng panahon", "मौसम बॉक्स", "Weervakken", "Väderrutor", "Riquadri meteo", "Pola pogodowe", "Vejrfelter", "Værfelt"],
   "Follow Home Assistant":["Suivre Home Assistant", "Usar el idioma de Home Assistant", "Home-Assistant-Sprache übernehmen", "Sundin ang wika ng Home Assistant", "Home Assistant की भाषा का उपयोग करें", "Home Assistant-taal volgen", "Följ Home Assistants språk", "Segui la lingua di Home Assistant", "Użyj języka Home Assistant", "Følg Home Assistants sprog", "Følg språket i Home Assistant"],
   "Language":["Langue", "Idioma", "Sprache", "Wika", "भाषा", "Taal", "Språk", "Lingua", "Język", "Sprog", "Språk"],
   "Settings":["Paramètres", "Ajustes", "Einstellungen", "Mga setting", "सेटिंग्स", "Instellingen", "Inställningar", "Impostazioni", "Ustawienia", "Indstillinger", "Innstillinger"],

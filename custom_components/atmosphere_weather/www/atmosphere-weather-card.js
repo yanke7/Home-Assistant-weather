@@ -1,6 +1,7 @@
 import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.39';
-import {languages,translate} from './translations.js?v=0.1.34';
+import {languages,translate} from './translations.js?v=0.1.42';
 
+const boxDefaults = ["windSummary","humidity","precipChance","solar","pressure","gusts"];
 const themes = [
   ['original','Original','#101923','#17232e','#eac68b'],
   ['steel','Brushed Steel','#24272c','#363b43','#c8b8ff'],
@@ -373,9 +374,18 @@ ${thermostatCSS}</style><main id="shell">
         </label>
         <section><h3 data-label="Locations">Locations</h3><div id="location-settings"></div><p id="notice" role="status"></p></section>
         <section><h3 data-label="Appearance">Appearance</h3><div id="appearance-settings"></div></section>
+        <section><h3 data-label="Weather boxes">Weather boxes</h3><div id="box-settings"></div></section>
         <section><h3 data-label="Data">Data</h3><p data-label="Open-Meteo receives saved coordinates and location searches. Home Assistant serves the base map and RainViewer supplies precipitation tiles. Provider and radar controls are under Devices &amp; services → Atmosphere Weather → Configure.">Open-Meteo receives saved coordinates and location searches. Home Assistant serves the base map and RainViewer supplies precipitation tiles. Provider and radar controls are under Devices &amp; services → Atmosphere Weather → Configure.</p></section>
        </div>
       </dialog>
+      <dialog id="box-editor" aria-labelledby="box-heading">
+        <h2 id="box-heading"></h2><form id="box-form">
+          <div class="box-preview" id="box-preview"></div>
+          <label><span data-label="Reading">Reading</span><select id="box-reading"></select></label>
+          <label><span data-label="Custom title">Custom title</span><input id="box-title" maxlength="40"></label>
+          <div class="actions"><button type="button" id="box-cancel" data-label="Cancel">Cancel</button>
+          <button type="submit" data-label="Save">Save</button></div>
+        </form></dialog>
       <dialog id="alerts-dialog" aria-labelledby="alerts-title">
         <div class="heading"><h2 id="alerts-title" data-label="Active weather alerts">Active weather alerts</h2><button id="alerts-close" aria-label="Close weather alerts">✕</button></div>
         <div id="alerts-list"></div>
@@ -386,6 +396,27 @@ ${thermostatCSS}</style><main id="shell">
         <p data-label="Choose what to show in this type of forecast.">Choose what to show in this type of forecast.</p>
         <div id="reading-choices"></div><button id="reading-reset" data-label="Show all readings">Show all readings</button>
       </dialog></main>`;
+    this.$('box-cancel').onclick = () => this.$('box-editor').close();
+    this.$('box-form').oninput = () => this.previewBox();
+    this.$('box-form').onsubmit = event => {
+      event.preventDefault();
+      const boxes = this.weatherBoxes();
+      boxes[this.editingBox] = {key:this.$('box-reading').value,title:this.$('box-title').value.trim()};
+      this.saveBoxes(boxes);
+      this.$('box-editor').close();
+    };
+    this.$('box-settings').onclick = event => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      const boxes = this.weatherBoxes();
+      if (button.dataset.action === 'add' && boxes.length < 6) {
+        boxes.push({key:boxDefaults[boxes.length],title:''});
+        this.saveBoxes(boxes);
+      } else if (button.dataset.action === 'remove') {
+        boxes.splice(Number(button.dataset.index),1);
+        this.saveBoxes(boxes);
+      } else if (button.dataset.action === 'edit') this.editBox(Number(button.dataset.index));
+    };
     this.$('language').onchange = event => {
       this.languagePreference = event.target.value;
       this.write('language',this.languagePreference);
@@ -571,15 +602,7 @@ ${thermostatCSS}</style><main id="shell">
     } else if (selected && current.is_day === 1) {
       positionSun(this.$('hero').querySelector('.orb'), weather?.daily, Date.now());
     }
-    const direction = this.compass(current.wind_direction_10m,current.wind_speed_10m);
-    const metrics = [
-      [direction ? this.t('Wind') + ' · ' + direction : this.t('Wind'),this.wind(current.wind_speed_10m)],
-      [this.t('Humidity'),this.measure(current.relative_humidity_2m,'%')],
-      [this.t('Precipitation chance'),this.measure(current.next_precipitation,'%')],
-      [current.is_day === 0 ? this.t('Next sunrise') : this.t('Next sunset'),this.time(current.is_day === 0 ? current.sunrise : current.sunset)],
-    ];
-    this.$('metrics').innerHTML = metrics.map(([name,value]) =>
-      `<div><span>${name}</span><strong>${value}</strong></div>`).join('');
+    this.renderBoxes();
     this.shadowRoot.querySelectorAll('button[data-tab]').forEach(button =>
       button.setAttribute('aria-pressed',String(button.dataset.tab === this.tab)));
     const mode = this.tab === 'daily' ? 'daily' : 'hourly';
@@ -664,8 +687,7 @@ ${thermostatCSS}</style><main id="shell">
     }
   }
 
-  readingRows() {
-    const {kind,record:r} = this.reading;
+  readingRows({kind,record:r} = this.reading) {
     const current = kind === 'current';
     const temp = value => value == null ? null : this.temp(value) + (this.imperial ? 'F' : 'C');
     const measure = (value,unit,factor = 1,digits = 0) =>
@@ -702,6 +724,77 @@ ${thermostatCSS}</style><main id="shell">
       ['interval',this.t('Precipitation observation interval'),measure(r.interval,'min',1/60,1)],
       ['updated',this.t('Last successful update'),timestamp(r.updated_at)],
     ];
+  }
+
+  boxChoices() {
+    const record = this.data?.weather?.current || {};
+    const rows = this.readingRows({kind:'current',record}).filter(([key]) => key !== 'snow');
+    const direction = this.compass(record.wind_direction_10m,record.wind_speed_10m);
+    const night = record.is_day === 0;
+    return [
+      ['windSummary',this.t('Wind'),this.wind(record.wind_speed_10m),[this.t('Wind'),direction].filter(Boolean).join(' · ')],
+      ['solar',this.t('Sunrise / sunset'),this.time(night ? record.sunrise : record.sunset),this.t(night ? 'Next sunrise' : 'Next sunset')],
+      ...rows.map(row => row[0] === 'precipChance' ? [...row,this.t('Precipitation chance')] : row),
+    ];
+  }
+
+  weatherBoxes() {
+    let saved;
+    try { saved = JSON.parse(this.read('weatherBoxes')); } catch { /* Use defaults. */ }
+    const count = Array.isArray(saved) ? Math.min(6,Math.max(4,saved.length)) : 4;
+    return boxDefaults.slice(0,count).map((key,i) => ({
+      key:typeof saved?.[i]?.key === 'string' ? saved[i].key : key,
+      title:typeof saved?.[i]?.title === 'string' ? saved[i].title : '',
+    }));
+  }
+
+  boxContents(box,choices,index) {
+    const [,label,value,shortLabel] = choices.find(row => row[0] === box.key)
+      || choices.find(row => row[0] === boxDefaults[index]);
+    return `<span>${escape(box.title || shortLabel || label)}</span><strong>${escape(value ?? '—')}</strong>`;
+  }
+
+  renderBoxes() {
+    const boxes = this.weatherBoxes();
+    const choices = this.boxChoices();
+    const metrics = this.$('metrics');
+    metrics.style.setProperty('--box-count',boxes.length);
+    metrics.innerHTML = boxes.map((box,i) => `<div>${this.boxContents(box,choices,i)}</div>`).join('');
+  }
+
+  saveBoxes(boxes) {
+    this.write('weatherBoxes',JSON.stringify(boxes));
+    this.renderBoxes();
+    this.renderBoxSettings();
+  }
+
+  renderBoxSettings() {
+    const boxes = this.weatherBoxes();
+    const choices = this.boxChoices();
+    this.$('box-settings').innerHTML = boxes.map((box,i) => `<div class="box-row">
+      <div class="box-preview">${this.boxContents(box,choices,i)}</div>
+      <button type="button" data-action="edit" data-index="${i}">${escape(this.t('Edit'))}</button>
+      ${i >= 4 ? `<button type="button" data-action="remove" data-index="${i}">${escape(this.t('Remove'))}</button>` : ''}
+      </div>`).join('') + (boxes.length < 6 ? `<button type="button" data-action="add">${escape(this.t('Add landscape box'))}</button>` : '');
+  }
+
+  editBox(index) {
+    this.editingBox = index;
+    const box = this.weatherBoxes()[index];
+    const choices = this.boxChoices();
+    this.$('box-heading').textContent = this.t('Weather boxes') + ' · ' + (index + 1);
+    this.$('box-reading').innerHTML = choices.map(([key,label]) =>
+      `<option value="${key}">${escape(label)}</option>`).join('');
+    this.$('box-reading').value = choices.some(([key]) => key === box.key) ? box.key : boxDefaults[index];
+    this.$('box-title').value = box.title;
+    this.previewBox();
+    this.$('box-editor').showModal();
+  }
+
+  previewBox() {
+    this.$('box-preview').innerHTML = this.boxContents({
+      key:this.$('box-reading').value,title:this.$('box-title').value.trim(),
+    },this.boxChoices(),this.editingBox);
   }
 
   hiddenReadings() {
@@ -1037,6 +1130,7 @@ ${thermostatCSS}</style><main id="shell">
   }
 
   renderAppearanceSettings() {
+    this.renderBoxSettings();
     const content = this.$('appearance-settings');
     content.innerHTML = `<div class="themes">${themes.map(([id,name,bg,,accent]) =>
       `<button data-theme-choice="${id}" aria-pressed="${this.theme === id}"><i style="background:${bg};border-color:${accent}"></i>${escape(this.t(name))}</button>`).join('')}</div>
@@ -1263,6 +1357,13 @@ main:not([data-theme=original]) .hero{background:linear-gradient(115deg,var(--su
 .kicker{font-size:.78em;font-weight:600;overflow-wrap:anywhere}.temperature{font-size:clamp(43px,8vh,85px);font-weight:300;letter-spacing:-.05em;line-height:1.1}
 .temperature sup{font-size:.35em;vertical-align:super;letter-spacing:0}.condition{text-transform:capitalize}.summary{display:grid;gap:8px;text-align:right;font-size:.83em}.summary strong{font-size:1.45em;font-weight:600}
 .metrics,.outlook{display:grid;gap:12px;min-height:0}.metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (orientation:landscape){.metrics{grid-template-columns:repeat(var(--box-count,4),minmax(0,1fr))}}
+@media (orientation:portrait){#shell .metrics>div:nth-child(n+5){display:none}}
+.metrics>div{overflow:hidden}.metrics>div>*{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.box-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.box-preview{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;flex:1;min-width:0;overflow-wrap:anywhere}
+.box-preview strong{display:block}
+#box-form{display:grid;gap:12px}#box-form label{display:grid;gap:4px}
 .metrics>div,.panel{background:var(--surface);border:1px solid var(--line);border-radius:13px;min-width:0;padding:12px}
 .metrics span,.period span,.period small,footer,.radar-content small,.empty{color:var(--muted);font-size:.78em}
 .metrics strong{display:block;margin-top:4px;font-size:1.15em}.metrics span{display:block}
