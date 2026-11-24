@@ -3,12 +3,12 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 import unittest
 
-from custom_components.atmosphere_weather.config_flow import clean_location, location_key
+from custom_components.atmosphere_weather.config_flow import async_clean_location, location_key
 from custom_components.atmosphere_weather.entity import identity
 from custom_components.atmosphere_weather.provider import normalize
 
 
-class WeatherTests(unittest.TestCase):
+class WeatherTests(unittest.IsolatedAsyncioTestCase):
     def test_dst_and_missing_values(self):
         now = datetime(2026, 11, 1, 5, tzinfo=UTC).timestamp()
         data = normalize({
@@ -17,6 +17,7 @@ class WeatherTests(unittest.TestCase):
                        "precipitation_probability": [0, 75]},
             "daily": {"time": [now], "sunrise": [None], "weather_code": [999]},
         }, "America/Toronto", now)
+        self.assertEqual(data["timezone"], "America/Toronto")
         self.assertEqual(data["current"]["temperature_2m"], 0)
         self.assertEqual(data["current"]["condition"], "clear-night")
         self.assertEqual(data["current"]["next_precipitation"], 75)
@@ -25,10 +26,10 @@ class WeatherTests(unittest.TestCase):
         self.assertIsNone(data["hourly"][1]["precipitation_probability"])
         self.assertNotEqual(data["hourly"][0]["datetime"], data["hourly"][1]["datetime"])
 
-    def test_invalid_location(self):
+    async def test_invalid_location(self):
         for latitude, timezone in [(float("nan"), "UTC"), (91, "UTC"), (0, "Wrong/Zone")]:
             with self.assertRaises(ValueError):
-                clean_location(dict(name="Test", latitude=latitude, longitude=0, timezone=timezone))
+                await async_clean_location(dict(name="Test", latitude=latitude, longitude=0, timezone=timezone))
 
     def test_rename_keeps_identity(self):
         data = dict(name="First", latitude=35.7, longitude=139.7, timezone="Asia/Tokyo")

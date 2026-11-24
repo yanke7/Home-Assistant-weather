@@ -1,7 +1,6 @@
 """Hourly fishing conditions derived from the location's weather forecast."""
 from datetime import UTC, datetime
 from statistics import mean
-from zoneinfo import ZoneInfo
 
 import ephem
 
@@ -11,8 +10,7 @@ from .provider import number, rows, timestamp
 WATER_TYPES = ("lake", "river", "pond", "reservoir")
 
 
-def fishing_forecast(payload, location):
-    zone = ZoneInfo(location["timezone"])
+def fishing_forecast(payload, location, zone):
     observer = ephem.Observer()
     observer.lat = str(location["latitude"])
     observer.lon = str(location["longitude"])

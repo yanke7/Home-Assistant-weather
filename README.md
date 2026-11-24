@@ -18,7 +18,7 @@ https://github.com/user-attachments/assets/d705aa0d-a89f-4dd0-9074-667555b3e00b
 
 Atmosphere targets Home Assistant **2026.11 or later**.
 
-1. Add `https://github.com/yanke7/Home-Assistant-weather` as a custom **Integration** repository in Marketplace or HACS, then download it. Alternatively, extract the release ZIP into the Home Assistant configuration directory so it contains `custom_components/atmosphere_weather/manifest.json`.
+1. Search for **Atmosphere Weather** in Home Assistant Marketplace or HACS and select **Download**. If it doesn’t appear in search, add `https://github.com/yanke7/Home-Assistant-weather` as a custom **Integration** repository. For a manual install, extract the release ZIP into the Home Assistant configuration directory so it contains `custom_components/atmosphere_weather/manifest.json`.
 2. Restart Home Assistant and add **Atmosphere Weather** through **Settings → Devices & services → Add integration**. The initial form defaults to your Home Assistant location and lets you change it.
 3. Add the **Atmosphere Weather** card to a panel dashboard. The integration loads its own card resource. See [the example dashboard](examples/dashboard.yaml).
 

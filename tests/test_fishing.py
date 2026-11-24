@@ -22,7 +22,7 @@ class FishingTests(unittest.TestCase):
         result = fishing_forecast(payload, {
             "latitude": 0, "longitude": 0, "timezone": "UTC",
             "fishing_water": "lake", "fishing_species": ["walleye", "pike"],
-        })
+        }, UTC)
         self.assertEqual(list(result), ["walleye", "pike"])
         days = result["walleye"]
         self.assertEqual([(w["start"]-start,w["end"]-start) for w in days[0]["windows"]],

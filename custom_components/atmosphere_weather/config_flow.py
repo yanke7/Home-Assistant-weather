@@ -1,25 +1,23 @@
 """Configure Atmosphere and its saved locations."""
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.util import dt as dt_util
 
 from .coordinator import DOMAIN
 
 LIMIT = 20
 
 
-def clean_location(data):
+async def async_clean_location(data):
     name = data["name"].strip()
     latitude = float(data["latitude"])
     longitude = float(data["longitude"])
     zone = data["timezone"].strip()
     if not name or len(name) > 80 or not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
         raise ValueError("Enter a name and valid coordinates")
-    try:
-        ZoneInfo(zone)
-    except (ValueError, ZoneInfoNotFoundError):
-        raise ValueError("Enter a valid IANA time zone") from None
+    if await dt_util.async_get_time_zone(zone) is None:
+        raise ValueError("Enter a valid IANA time zone")
     return dict(name=name, latitude=latitude, longitude=longitude, timezone=zone)
 
 
@@ -55,7 +53,7 @@ class AtmosphereFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                data = clean_location(user_input)
+                data = await async_clean_location(user_input)
             except ValueError:
                 errors["base"] = "invalid_location"
             else:
@@ -81,17 +79,17 @@ class ProviderOptions(config_entries.OptionsFlow):
 
 class LocationFlow(config_entries.ConfigSubentryFlow):
     async def async_step_user(self, user_input=None):
-        return self.location_form("user", user_input)
+        return await self.async_location_form("user", user_input)
 
     async def async_step_reconfigure(self, user_input=None):
-        return self.location_form("reconfigure", user_input, self._get_reconfigure_subentry())
+        return await self.async_location_form("reconfigure", user_input, self._get_reconfigure_subentry())
 
-    def location_form(self, step, user_input, existing=None):
+    async def async_location_form(self, step, user_input, existing=None):
         entry = self._get_entry()
         errors = {}
         if user_input is not None:
             try:
-                data = clean_location(user_input)
+                data = await async_clean_location(user_input)
             except ValueError:
                 errors["base"] = "invalid_location"
             else:

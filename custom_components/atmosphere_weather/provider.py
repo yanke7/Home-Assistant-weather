@@ -1,7 +1,6 @@
 """Open-Meteo request and normalization."""
 from datetime import UTC, datetime
 import math
-from zoneinfo import ZoneInfo
 
 CURRENT = ("temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,"
            "wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation,weather_code,is_day,cloud_cover")
@@ -68,7 +67,7 @@ def normalize(payload, zone, now):
         "current": result,
         "hourly": [forecast(row, False) for row in hourly[:48]],
         "daily": [forecast(row, True) for row in daily[:7]],
-        "timezone": ZoneInfo(zone).key,
+        "timezone": zone,
     }
 
 

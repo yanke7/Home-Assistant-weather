@@ -11,7 +11,7 @@ from homeassistant.config_entries import ConfigSubentry
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .config_flow import LIMIT, clean_location, home, location_key
+from .config_flow import LIMIT, async_clean_location, home, location_key
 from .coordinator import DOMAIN
 from .fishing import FISH_PROFILES, WATER_TYPES
 
@@ -112,7 +112,7 @@ async def save_location(hass, connection, msg):
         connection.send_error(msg["id"], "not_loaded", "Atmosphere Weather is loading.")
         return
     try:
-        data = clean_location(msg)
+        data = await async_clean_location(msg)
         key = location_key(data)
         existing = entry.subentries.get(msg.get("location"))
         if msg.get("location") and existing is None:
