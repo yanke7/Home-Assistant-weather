@@ -129,6 +129,8 @@ Open the thermostat gear, enter the three names and temperatures you want, then 
 
 ### Appearance, units, and languages
 
+- **Clock format:** Under **Settings → Appearance**, choose the language default, a 12-hour clock, or a 24-hour clock. The choice is saved in your browser for that dashboard.
+
 - **Eight appearance options:** Original, Brushed Steel, Amber Relay, Neon Grid, Midnight Drift, Aqua Current, Star Trek, and Follow Appearance. Follow Appearance uses shared appearance variables when available and falls back to the Home Assistant theme.
 - **Metric or imperial display:** Change the dashboard’s display units in Settings. Entity units follow Home Assistant settings.
 - **12 dashboard languages:** English, French, Spanish, German, Tagalog, Hindi, Dutch, Swedish, Italian, Polish, Danish, and Norwegian Bokmål. By default, the dashboard follows the Home Assistant profile language and uses English if that language is unsupported. Choose a different language under **Settings → Language** to override it or select **Follow Home Assistant** to switch back. The language changes dashboard labels, weather conditions, and forecast date and time formatting. Official alert titles and descriptions use the issuing agency’s language.

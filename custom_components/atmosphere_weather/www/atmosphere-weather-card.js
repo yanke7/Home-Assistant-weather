@@ -1,5 +1,5 @@
 import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.39';
-import {languages,translate} from './translations.js?v=0.1.44';
+import {languages,translate} from './translations.js?v=0.1.50';
 
 const boxDefaults = ["windSummary","humidity","precipChance","solar","pressure","gusts"];
 const themes = [
@@ -177,6 +177,8 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.theme = themes.find(item => item[0] === this.read('theme'))?.[0] || 'original';
     const language = this.read('language');
     this.languagePreference = Object.hasOwn(languages,language) ? language : 'auto';
+    const clock = this.read("clockFormat");
+    this.clockFormat = ["12","24"].includes(clock) ? clock : "auto";
     this.imperial = this.read('units') === 'imperial';
   }
   read(key) { try { return localStorage.getItem(this.key + '.' + key); } catch { return null; } }
@@ -501,8 +503,9 @@ ${thermostatCSS}</style><main id="shell">
   }
   date(value, options) {
     if (!value) return '—';
+    const hourCycle = this.clockFormat === '24' ? 'h23' : this.clockFormat === '12' ? 'h12' : undefined;
     return new Intl.DateTimeFormat(this.language,
-      {timeZone:this.data?.selected?.timezone, ...options}).format(new Date(value));
+      {timeZone:this.data?.selected?.timezone, ...options, ...(options.hour && hourCycle ? {hourCycle} : {})}).format(new Date(value));
   }
   time(value) { return this.date(value,{hour:'numeric',minute:'2-digit'}); }
   wind(value) { return this.measure(value,this.imperial ? 'mph' : 'km/h',this.imperial ? 0.621371 : 1); }
@@ -619,7 +622,7 @@ ${thermostatCSS}</style><main id="shell">
     const mode = this.tab === 'daily' ? 'daily' : 'hourly';
     const periods = (weather?.[mode] || []).slice(0,mode === 'daily' ? 7 : 8);
     if (this.tab !== 'fishing') this.$('periods').innerHTML = periods.length ? `<div class="periods ${mode}">${periods.map((item,index) => `
-      <button type="button" class="period period-reading" data-reading="${mode}" data-period="${index}" aria-label="${escape(this.date(item.datetime,{weekday:'long',month:'short',day:'numeric',...(mode === 'hourly' ? {hour:'numeric',minute:'2-digit'} : {})}))} weather details"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : {hour:'numeric'})}</small>
+      <button type="button" class="period period-reading" data-reading="${mode}" data-period="${index}" aria-label="${escape(this.date(item.datetime,{weekday:'long',month:'short',day:'numeric',...(mode === 'hourly' ? {hour:'numeric',minute:'2-digit'} : {})}))} weather details"><small>${this.date(item.datetime,mode === 'daily' ? {weekday:'short'} : this.clockFormat === '24' ? {hour:'2-digit',minute:'2-digit'} : {hour:'numeric'})}</small>
       <span class="icon" role="img" aria-label="${escape(this.conditionLabel(item.condition))}"><i aria-hidden="true">${forecastIcon(item)}</i></span>
       <strong>${this.temp(item.native_temperature)}</strong>
       <span>${mode === 'daily' ? this.t('Low') + ' ' + this.temp(item.native_templow) : this.wind(item.native_wind_speed) + ' ' + this.compass(item.wind_bearing,item.native_wind_speed)}</span>
@@ -1154,6 +1157,18 @@ ${thermostatCSS}</style><main id="shell">
     content.innerHTML = `<div class="themes">${themes.map(([id,name,bg,,accent]) =>
       `<button data-theme-choice="${id}" aria-pressed="${this.theme === id}"><i style="background:${bg};border-color:${accent}"></i>${escape(this.t(name))}</button>`).join('')}</div>
       <label class="units">${escape(this.t("Units"))} <select id="units" aria-label="Units"><option value="metric">${escape(this.t("Metric"))}</option><option value="imperial">${escape(this.t("Imperial"))}</option></select></label>`;
+    content.insertAdjacentHTML('beforeend', `<label class="units">${escape(this.t('Clock format'))}
+      <select id="clock-format">
+        <option value="auto">${escape(this.t('Language default'))}</option>
+        <option value="12">12 h</option><option value="24">24 h</option>
+      </select></label>`);
+    this.$('clock-format').value = this.clockFormat;
+    this.$('clock-format').onchange = event => {
+      this.clockFormat = event.target.value;
+      this.write('clockFormat',this.clockFormat);
+      this.$('weather-details').close();
+      this.render();
+    };
     content.querySelectorAll('[data-theme-choice]').forEach(button => button.onclick = () => {
       this.theme = button.dataset.themeChoice;
       this.write('theme',this.theme);

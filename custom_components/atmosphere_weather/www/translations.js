@@ -2,6 +2,8 @@ export const languages = {"en": "English", "fr": "Français", "es": "Español", 
 
 // Each row follows the language order above, excluding English (the message key).
 const messages = {
+  "Clock format":["Format horaire","Formato de hora","Uhrzeitformat","Format ng oras","समय प्रारूप","Tijdnotatie","Tidsformat","Formato orario","Format czasu","Tidsformat","Tidsformat"],
+  "Language default":["Selon la langue","Predeterminado del idioma","Sprachstandard","Default ng wika","भाषा का डिफ़ॉल्ट","Taalstandaard","Språkstandard","Predefinito della lingua","Domyślny dla języka","Sprogstandard","Språkstandard"],
   "Fishing":["Pêche", "Pesca", "Angeln", "Pangingisda", "मछली पकड़ना", "Vissen", "Fiske", "Pesca", "Wędkarstwo", "Fiskeri", "Fiske"],
   "Fishing forecasts":["Prévisions de pêche", "Pronóstico de pesca", "Angelprognosen", "Pagtataya sa pangingisda", "मछली पकड़ने का पूर्वानुमान", "Visverwachting", "Fiskeprognos", "Previsioni di pesca", "Prognoza wędkarska", "Fiskeprognose", "Fiskevarsel"],
   "Fish species":["Espèces de poissons", "Especies de peces", "Fischarten", "Mga uri ng isda", "मछलियों की प्रजातियाँ", "Vissoorten", "Fiskarter", "Specie di pesci", "Gatunki ryb", "Fiskearter", "Fiskearter"],
