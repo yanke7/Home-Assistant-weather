@@ -1,5 +1,5 @@
 import {ThermostatControls,thermostatCSS,thermostatMarkup} from './thermostat.js?v=0.1.39';
-import {languages,translate} from './translations.js?v=0.1.50';
+import {languages,translate} from './translations.js?v=0.1.51';
 
 const boxDefaults = ["windSummary","humidity","precipChance","solar","pressure","gusts"];
 const themes = [
@@ -177,6 +177,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.theme = themes.find(item => item[0] === this.read('theme'))?.[0] || 'original';
     const language = this.read('language');
     this.languagePreference = Object.hasOwn(languages,language) ? language : 'auto';
+    this.showClock = this.read("showClock") === "true";
     const clock = this.read("clockFormat");
     this.clockFormat = ["12","24"].includes(clock) ? clock : "auto";
     this.imperial = this.read('units') === 'imperial';
@@ -244,9 +245,11 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.radarLayoutObserver.observe(this.$('shell'));
     this.startSky();
     this.refresh();
+    this.clockTimer = setInterval(() => this.updateClock(), 1000);
     this.timer = setInterval(() => this.refresh(), 60000);
   }
   disconnectedCallback() {
+    clearInterval(this.clockTimer);
     clearInterval(this.timer);
     cancelAnimationFrame(this.viewportFrame);
     cancelAnimationFrame(this.popupFrame);
@@ -337,7 +340,7 @@ class AtmosphereWeatherCard extends HTMLElement {
     this.shadowRoot.innerHTML = `<style>${CSS}
 ${thermostatCSS}</style><main id="shell">
       <header><div class="brand"><span aria-hidden="true">◒</span><strong>Atmosphere</strong></div>
-        <div class="actions"><select id="location" aria-label="Weather location"></select>
+        <div class="actions"><div class="location-controls"><time id="dashboard-clock" hidden></time><select id="location" aria-label="Weather location"></select></div>
           <button id="settings" aria-label="Settings" title="Settings"><span class="gear">⚙</span><span class="trek-settings" data-label="Settings">Settings</span></button><div id="trek-time"></div></div></header>
       <div id="hero-layout">
         <section id="hero" class="hero"><div id="sky-content"></div>
@@ -507,6 +510,17 @@ ${thermostatCSS}</style><main id="shell">
     return new Intl.DateTimeFormat(this.language,
       {timeZone:this.data?.selected?.timezone, ...options, ...(options.hour && hourCycle ? {hourCycle} : {})}).format(new Date(value));
   }
+  updateClock() {
+    const clock = this.$('dashboard-clock');
+    clock.hidden = !this.showClock || !this.data?.selected;
+    if (clock.hidden) return;
+    const now = new Date();
+    const label = this.time(now);
+    if (clock.textContent !== label) {
+      clock.dateTime = now.toISOString();
+      clock.textContent = label;
+    }
+  }
   time(value) { return this.date(value,{hour:'numeric',minute:'2-digit'}); }
   wind(value) { return this.measure(value,this.imperial ? 'mph' : 'km/h',this.imperial ? 0.621371 : 1); }
 
@@ -635,6 +649,7 @@ ${thermostatCSS}</style><main id="shell">
     trend.title = trend.getAttribute('aria-label');
     this.drawTemperatureTrend();
     this.$('status').textContent = current.updated_at ? (fresh ? this.t('Updated') : this.t('Last available data')) + ' ' + this.time(current.updated_at) : '';
+    this.updateClock();
     this.$('trek-time').textContent = selected
       ? this.date(new Date(), {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
         + (current.updated_at ? ' · ' + this.$('status').textContent : '') : '';
@@ -1161,7 +1176,15 @@ ${thermostatCSS}</style><main id="shell">
       <select id="clock-format">
         <option value="auto">${escape(this.t('Language default'))}</option>
         <option value="12">12 h</option><option value="24">24 h</option>
-      </select></label>`);
+      </select></label>
+      <label class="units"><span>${escape(this.t('Show dashboard clock'))}</span>
+        <input id="show-clock" type="checkbox"></label>`);
+    this.$('show-clock').checked = this.showClock;
+    this.$('show-clock').onchange = event => {
+      this.showClock = event.target.checked;
+      this.write('showClock',String(this.showClock));
+      this.updateClock();
+    };
     this.$('clock-format').value = this.clockFormat;
     this.$('clock-format').onchange = event => {
       this.clockFormat = event.target.value;
@@ -1510,6 +1533,11 @@ header,.actions,.heading,footer,.radar-controls{display:flex;align-items:center;
 button,input,select{font:inherit;color:inherit}button,input,select{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px}
 button,select{cursor:pointer}button:disabled{opacity:.5;cursor:default}button[aria-pressed=true]{outline:1px solid var(--accent);background:color-mix(in srgb,var(--surface),var(--accent) 15%)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header>.actions,.location-controls{min-width:0}
+.location-controls{display:flex;align-items:center;justify-content:flex-end;gap:clamp(3px,1cqw,10px);max-width:100%}
+.location-controls #location{min-width:0}
+#dashboard-clock{white-space:nowrap;font-size:clamp(10px,2.2cqw,18px);font-weight:700;font-variant-numeric:tabular-nums}
+#dashboard-clock[hidden]{display:none}
 #location{max-width:min(40cqw,300px);text-overflow:ellipsis}#settings,#close{min-width:38px}
 .hero{position:relative;isolation:isolate;overflow:hidden;border-radius:18px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:10px;
  background:linear-gradient(115deg,#233f55,#627d91);border:1px solid var(--line);color:#f3f6f8}

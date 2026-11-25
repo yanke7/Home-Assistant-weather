@@ -129,7 +129,7 @@ Open the thermostat gear, enter the three names and temperatures you want, then 
 
 ### Appearance, units, and languages
 
-- **Clock format:** Under **Settings → Appearance**, choose the language default, a 12-hour clock, or a 24-hour clock. The choice is saved in your browser for that dashboard.
+- **Clock format:** Under **Settings → Appearance**, choose the language default, a 12-hour clock, or a 24-hour clock. Turn on **Show dashboard clock** to see the selected location’s current time next to the location picker. The choice is saved in your browser for that dashboard.
 
 - **Eight appearance options:** Original, Brushed Steel, Amber Relay, Neon Grid, Midnight Drift, Aqua Current, Star Trek, and Follow Appearance. Follow Appearance uses shared appearance variables when available and falls back to the Home Assistant theme.
 - **Metric or imperial display:** Change the dashboard’s display units in Settings. Entity units follow Home Assistant settings.
