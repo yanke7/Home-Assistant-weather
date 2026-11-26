@@ -4,13 +4,11 @@ Atmosphere bundles a weather dashboard, worldwide Open-Meteo forecasts, recent p
 
 ## Watch the dashboard demo
 
-[![Animated 25-second tour of the weather dashboard, radar, themes and settings](docs/features/dashboard-demo.gif)](https://github.com/user-attachments/assets/d705aa0d-a89f-4dd0-9074-667555b3e00b)
+[![Animated 44-second Atmosphere Weather dashboard tour](docs/features/dashboard-demo.gif)](https://github.com/yanke7/Home-Assistant-weather/releases/download/v0.1.52/atmosphere-weather-demo.mp4)
 
-Tap the preview to open the full-resolution video.
+The 44-second tour shows the weather dashboard, radar and alerts, city cameras, thermostat controls, fishing forecasts, themes, languages, and the local clock. It also shows how to use weather and fishing entities for frost reminders, watering rules, and fishing alerts.
 
-https://github.com/user-attachments/assets/d705aa0d-a89f-4dd0-9074-667555b3e00b
-
-[Download the 25-second demo (MP4)](https://github.com/yanke7/Home-Assistant-weather/releases/download/v0.1.34/atmosphere-weather-demo.mp4). See the dashboard, radar, city cameras, themes, and language settings, plus an example of using weather entities in an automation.
+[Watch or download the full-resolution tour (MP4)](https://github.com/yanke7/Home-Assistant-weather/releases/download/v0.1.52/atmosphere-weather-demo.mp4)
 
 [![Install Atmosphere Weather with My Home Assistant](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=yanke7&repository=Home-Assistant-weather&category=integration)
 
